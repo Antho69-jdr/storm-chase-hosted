@@ -33,6 +33,7 @@
       --rail-top-focus: 128px;
       --rail-top-fab: 244px;
       --rail-top-map: 360px;
+      --rail-btn-size: 46px;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
@@ -91,11 +92,11 @@
 
     .panel-card {
       display: none;
-      gap: 8px;
+      gap: 10px;
       position: absolute;
-      right: calc(100% + 12px);
-      width: min(360px, calc(100vw - 108px));
-      padding: 10px;
+      right: calc(100% + 14px);
+      width: min(368px, calc(100vw - 108px));
+      padding: 12px;
       background: var(--panel-2);
       border: 1px solid var(--border);
       border-radius: 18px;
@@ -104,7 +105,25 @@
       box-shadow: var(--shadow);
     }
     .search-panel { top: 0; }
-    .calendar-panel { top: 58px; }
+    .calendar-panel { top: 0; }
+    .calendar-panel #dayButtons button {
+      min-width: 102px;
+      min-height: 44px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      border-radius: 13px;
+    }
+    .calendar-panel #slotButtons button {
+      min-width: 82px;
+      min-height: 38px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 11px;
+      color: #d3def3;
+      background: rgba(255,255,255,0.035);
+    }
 
     .mobile-toggle-bar {
       display: grid;
@@ -113,15 +132,26 @@
     }
 
     .mobile-toggle-btn,
-    .icon-only-btn {
-      min-width: 46px;
-      width: 46px;
-      height: 46px;
+    .icon-only-btn,
+    .grid-focus-btn,
+    .fab {
+      box-sizing: border-box;
+      min-width: var(--rail-btn-size);
+      width: var(--rail-btn-size);
+      height: var(--rail-btn-size);
+      min-height: var(--rail-btn-size);
       padding: 0;
       display: inline-grid;
       place-items: center;
       font-size: 0;
       line-height: 1;
+      border-radius: 14px;
+      background: rgba(9, 18, 31, 0.56);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      cursor: pointer;
     }
 
     .icon-svg {
@@ -130,11 +160,6 @@
       display: block;
       color: currentColor;
       pointer-events: none;
-    }
-
-    .mobile-toggle-btn {
-      border-radius: 14px;
-      background: rgba(9, 18, 31, 0.56);
     }
 
     .ghost-btn { background: rgba(255,255,255,0.04); }
@@ -467,17 +492,6 @@
       justify-items: end;
     }
     .fab {
-      width: 46px;
-      height: 46px;
-      min-width: 46px;
-      min-height: 46px;
-      padding: 0;
-      border-radius: 14px;
-      display: inline-grid;
-      place-items: center;
-      background: rgba(9, 18, 31, 0.56);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
       font-size: 0;
     }
     .fab.small-label {
@@ -520,21 +534,8 @@
       justify-items: end;
     }
     .grid-focus-btn {
-      width: 46px;
-      height: 46px;
-      min-width: 46px;
-      min-height: 46px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: rgba(9, 18, 31, 0.56);
       color: #e5edf9;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(12px);
-      display: inline-grid;
-      place-items: center;
-      cursor: pointer;
       transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
-      padding: 0;
     }
     .grid-focus-btn:hover {
       background: rgba(17, 31, 54, 0.96);
@@ -556,10 +557,10 @@
       backdrop-filter: none;
     }
     .maplibregl-ctrl-group button {
-      width: 46px !important;
-      height: 46px !important;
-      min-width: 46px !important;
-      min-height: 46px !important;
+      width: var(--rail-btn-size) !important;
+      height: var(--rail-btn-size) !important;
+      min-width: var(--rail-btn-size) !important;
+      min-height: var(--rail-btn-size) !important;
       background: rgba(10, 18, 32, 0.92) !important;
       border: 1px solid var(--border) !important;
       border-radius: 14px !important;
@@ -596,6 +597,50 @@
       font-size: 12px;
       color: var(--muted);
       margin-top: 8px;
+    }
+
+    .app-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 50% 35%, rgba(30,58,138,0.22), transparent 42%), #07111f;
+      transition: opacity 420ms ease, visibility 420ms ease;
+    }
+    .app-loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .app-loader-card {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+      padding: 24px 28px;
+      border-radius: 24px;
+      background: rgba(8, 17, 30, 0.34);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(1.15);
+      -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    }
+    .app-loader-logo {
+      width: min(168px, 42vw);
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 10px 26px rgba(0,0,0,0.28));
+    }
+    .app-loader-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #eaf2ff;
+      text-transform: uppercase;
+    }
+    .app-loader-subtitle {
+      font-size: 12px;
+      color: var(--muted);
     }
 
     @keyframes loaderPulseGlow {
@@ -760,6 +805,13 @@
 </head>
 <body>
   <div id="app">
+    <div class="app-loader" id="appLoader">
+      <div class="app-loader-card">
+        <img class="app-loader-logo" src="/static/logo-objectif-foudre.svg" alt="Objectif Foudre" />
+        <div class="app-loader-title">Objectif Foudre</div>
+        <div class="app-loader-subtitle">Chargement de la situation convective…</div>
+      </div>
+    </div>
     <div id="map"></div>
 
     <div class="grid-focus-corner">
@@ -999,6 +1051,7 @@
     const refreshBtn = document.getElementById('refreshBtn');
     const installBtn = document.getElementById('installBtn');
     const installChip = document.getElementById('installChip');
+    const appLoader = document.getElementById('appLoader');
 
     let deferredInstallPrompt = null;
     let isFetchingData = false;
@@ -1018,9 +1071,13 @@
     const GRID_ANIMATION_CELL_MS = 220;
     const GRID_ANIMATION_STAGGER_SPAN_MS = 70;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
+    const APP_LOADER_MIN_MS = 700;
     let userLocationMarker = null;
+    let shouldAnimateNextGrid = true;
+    let hasCompletedInitialLoad = false;
     const DEFAULT_CENTER = { lat: 45.7640, lon: 4.8357, label: 'Lyon' };
     let currentCenter = loadStoredCenter();
+    const appLoaderStartedAt = performance.now();
 
     let payload = null;
     let selectedDayKey = null;
@@ -1110,6 +1167,26 @@
       topbar.classList.remove('show-search', 'show-calendar');
     }
 
+    function hideAppLoader() {
+      if (!appLoader || appLoader.classList.contains('hidden')) return;
+      const remaining = Math.max(0, APP_LOADER_MIN_MS - (performance.now() - appLoaderStartedAt));
+      window.setTimeout(() => appLoader.classList.add('hidden'), remaining);
+    }
+
+    function positionPanelToButton(panel, button) {
+      if (!panel || !button || !topbar.classList.contains('show-search') && !topbar.classList.contains('show-calendar')) return;
+      panel.style.top = '0px';
+      const buttonCenter = button.offsetTop + (button.offsetHeight / 2);
+      const panelHeight = panel.offsetHeight || 0;
+      const rawTop = buttonCenter - (panelHeight / 2);
+      panel.style.top = `${Math.max(0, Math.round(rawTop))}px`;
+    }
+
+    function alignTopPanels() {
+      if (topbar.classList.contains('show-search')) positionPanelToButton(document.querySelector('.search-panel'), toggleSearchBtn);
+      if (topbar.classList.contains('show-calendar')) positionPanelToButton(document.querySelector('.calendar-panel'), toggleCalendarBtn);
+    }
+
     function toggleTopPanel(panel) {
       if (!isMobileLayout()) return;
       const searchOpen = topbar.classList.contains('show-search');
@@ -1117,6 +1194,7 @@
       closeTopPanels();
       if (panel === 'search' && !searchOpen) topbar.classList.add('show-search');
       if (panel === 'calendar' && !calendarOpen) topbar.classList.add('show-calendar');
+      requestAnimationFrame(alignTopPanels);
     }
 
     function formatFrenchRun(dateString) {
@@ -1338,6 +1416,7 @@
           closeDetails();
           renderDayButtons();
           renderSlotButtons();
+          requestAnimationFrame(alignTopPanels);
           refreshMap();
         };
         dayButtons.appendChild(btn);
@@ -1359,6 +1438,7 @@
           closeSelection();
           closeDetails();
           renderSlotButtons();
+          requestAnimationFrame(alignTopPanels);
           refreshMap();
         };
         slotButtons.appendChild(btn);
@@ -1494,15 +1574,17 @@
       requestAnimationFrame(frame);
     }
 
-    function animateGridReveal(cells) {
+    function animateGridReveal(cells, onDone = null) {
       stopLoaderPulse();
       animateRevealToSource('grid', cells, buildGeoJSON, updateHighlight, () => {
+        const finish = () => { if (typeof onDone === 'function') onDone(); };
         if (map.getLayer('grid-loader-fill')) {
           const currentOpacity = map.getPaintProperty('grid-loader-fill', 'fill-opacity');
           const from = typeof currentOpacity === 'number' ? currentOpacity : 0.06;
-          animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', from, 0, 180, removeLoaderLayers);
+          animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', from, 0, 220, () => { removeLoaderLayers(); finish(); });
         } else {
           removeLoaderLayers();
+          finish();
         }
       });
     }
@@ -1639,7 +1721,19 @@
       }
       stopLoaderPulse();
       addLayers(buildGeoJSON(cells));
-      animateGridReveal(cells);
+      if (shouldAnimateNextGrid) {
+        animateGridReveal(cells, () => {
+          shouldAnimateNextGrid = false;
+          if (!hasCompletedInitialLoad) {
+            hasCompletedInitialLoad = true;
+            hideAppLoader();
+          }
+        });
+      } else {
+        setGridFillFactor(1);
+        removeLoaderLayers();
+        updateHighlight();
+      }
     }
 
     function safe(value, suffix = '') {
@@ -2102,6 +2196,7 @@
         if (fetchToken != activeFetchToken || centerToken !== centerChangeToken) return payload;
         payload = nextPayload;
         lastFetchSignature = signature;
+        shouldAnimateNextGrid = true;
         lastFetchAt = Date.now();
         const days = getDays();
         selectedDayKey = days.find(d => d.day_key === selectedDayKey)?.day_key || days[0]?.day_key || null;
@@ -2131,6 +2226,7 @@
       } catch (err) {
         console.warn(err);
         setMetaMessage('Impossible d’actualiser la zone courante.');
+        if (!hasCompletedInitialLoad) hideAppLoader();
       } finally {
         setLoadingState(false);
       }
@@ -2199,7 +2295,7 @@
     cityInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') handleCitySearch(); });
     installBtn.addEventListener('click', installApp);
     installChip.addEventListener('click', installApp);
-    window.addEventListener('resize', () => { if (!isMobileLayout()) closeTopPanels(); });
+    window.addEventListener('resize', () => { if (!isMobileLayout()) closeTopPanels(); requestAnimationFrame(alignTopPanels); });
     document.addEventListener('visibilitychange', maybeRefreshOnReturn);
     updateBestCellsButton();
 
