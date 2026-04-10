@@ -773,6 +773,9 @@
     let isFetchingData = false;
     let lastFetchSignature = '';
     let lastFetchAt = 0;
+    let gridAnimationToken = 0;
+    const GRID_ANIMATION_BATCH_SIZE = 10;
+    const GRID_ANIMATION_STEP_MS = 28;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
     let userLocationMarker = null;
     const DEFAULT_CENTER = { lat: 45.7640, lon: 4.8357, label: 'Lyon' };
@@ -1006,12 +1009,42 @@
       };
     }
 
+    function sortCellsForReveal(cells) {
+      return [...cells].sort((a, b) => {
+        const latDiff = Number(b.lat) - Number(a.lat);
+        if (Math.abs(latDiff) > 0.0001) return latDiff;
+        return Number(a.lon) - Number(b.lon);
+      });
+    }
+
+    function animateGridReveal(cells) {
+      const token = ++gridAnimationToken;
+      const orderedCells = sortCellsForReveal(cells);
+      const source = map.getSource('grid');
+      if (!source) return;
+
+      source.setData(buildGeoJSON([]));
+
+      const step = (count) => {
+        if (token !== gridAnimationToken) return;
+        const nextCount = Math.min(count + GRID_ANIMATION_BATCH_SIZE, orderedCells.length);
+        source.setData(buildGeoJSON(orderedCells.slice(0, nextCount)));
+        updateHighlight();
+        if (nextCount < orderedCells.length) {
+          window.setTimeout(() => step(nextCount), GRID_ANIMATION_STEP_MS);
+        }
+      };
+
+      step(0);
+    }
+
     function ensureSource(id, data) {
       if (map.getSource(id)) map.getSource(id).setData(data);
       else map.addSource(id, { type: 'geojson', data });
     }
 
     function removeLayers() {
+      gridAnimationToken += 1;
       if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
       if (map.getLayer('grid-outline')) map.removeLayer('grid-outline');
       if (map.getLayer('grid-fill')) map.removeLayer('grid-fill');
@@ -1098,7 +1131,7 @@
         return;
       }
       addLayers(buildGeoJSON(cells));
-      updateHighlight();
+      animateGridReveal(cells);
     }
 
     function safe(value, suffix = '') {
