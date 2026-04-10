@@ -45,7 +45,7 @@
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(760px, calc(100vw - 24px));
+      width: min(720px, calc(100vw - 48px));
       border-radius: 18px;
       padding: 10px 12px;
       display: grid;
@@ -142,7 +142,7 @@
       bottom: 16px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(420px, calc(100vw - 24px));
+      width: min(360px, calc(100vw - 36px));
       border-radius: 18px;
       padding: 12px 14px;
       display: grid;
@@ -151,11 +151,17 @@
       align-items: center;
     }
 
-    .meta-corner {
+    .meta-stack {
       position: absolute;
       z-index: 11;
       left: 12px;
       bottom: 12px;
+      display: grid;
+      gap: 6px;
+      max-width: min(320px, calc(100vw - 24px));
+    }
+
+    .meta-corner {
       padding: 8px 10px;
       border-radius: 12px;
       background: rgba(10, 18, 32, 0.78);
@@ -164,7 +170,8 @@
       font-size: 11px;
       backdrop-filter: blur(10px);
       box-shadow: var(--shadow);
-      max-width: min(420px, calc(100vw - 24px));
+      width: fit-content;
+      max-width: 100%;
     }
 
     .title {
@@ -231,7 +238,7 @@
       left: 50%;
       bottom: 130px;
       transform: translateX(-50%);
-      width: min(420px, calc(100vw - 24px));
+      width: min(380px, calc(100vw - 36px));
       border-radius: 20px;
       padding: 16px;
       background: var(--panel-2);
@@ -329,7 +336,7 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: min(500px, calc(100vw - 24px));
+      width: min(460px, calc(100vw - 36px));
       max-height: min(78vh, 760px);
       overflow: auto;
       background: var(--panel-2);
@@ -373,7 +380,10 @@
       min-height: 0;
     }
     .metric-btn .label { font-size: 11px; color: var(--muted); display: block; }
-    .metric-btn .value { margin-top: 6px; font-size: 16px; font-weight: 800; display: block; }
+    .metric-btn .value { margin-top: 6px; font-size: 15px; font-weight: 800; display: block; }
+    .metric-value-positive { color: #4ade80; }
+    .metric-value-negative { color: #f87171; }
+    .metric-value-neutral { color: var(--text); }
     .metric-btn .hint { margin-top: 4px; font-size: 11px; color: var(--muted); display: block; }
     .metric-btn:hover, .metric-btn:focus-visible { background: rgba(59,130,246,0.10); border-color: rgba(59,130,246,0.45); }
 
@@ -383,7 +393,7 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: min(440px, calc(100vw - 24px));
+      width: min(400px, calc(100vw - 36px));
       background: var(--panel-2);
       border: 1px solid var(--border);
       border-radius: 22px;
@@ -441,6 +451,34 @@
       backdrop-filter: blur(12px);
     }
     .floating-chip.visible { display: inline-flex; }
+
+    .maplibregl-ctrl-top-right {
+      top: 12px;
+      right: 12px;
+    }
+    .maplibregl-ctrl-group {
+      border: 1px solid var(--border) !important;
+      border-radius: 14px !important;
+      overflow: hidden;
+      background: rgba(10, 18, 32, 0.92) !important;
+      box-shadow: var(--shadow) !important;
+      backdrop-filter: blur(12px);
+    }
+    .maplibregl-ctrl-group button {
+      width: 46px !important;
+      height: 46px !important;
+      min-width: 46px !important;
+      min-height: 46px !important;
+      background: transparent !important;
+      border: 0 !important;
+    }
+    .maplibregl-ctrl-group button + button {
+      border-top: 1px solid var(--border) !important;
+    }
+    .maplibregl-ctrl-group button span {
+      filter: brightness(0) invert(1);
+      opacity: 0.92;
+    }
     .drag-handle {
       width: 44px;
       height: 5px;
@@ -474,44 +512,23 @@
 
     @media (orientation: landscape) {
       body.mobile-ui .selection-card {
-        left: auto;
-        right: 6px;
-        width: min(380px, calc(100vw - 18px));
-        max-height: min(64vh, 440px);
-        overflow: auto;
+        width: min(360px, calc(100vw - 28px));
         bottom: calc(72px + env(safe-area-inset-bottom));
         border-radius: 20px;
-      }
-      body.mobile-ui .selection-top {
-        position: sticky;
-        top: 0;
-        background: linear-gradient(to bottom, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
-        padding-bottom: 8px;
-        z-index: 1;
       }
       body.mobile-ui .selection-card .drag-handle {
         display: none;
       }
       body.mobile-ui .details-modal,
       body.mobile-ui .info-modal {
-        width: min(520px, calc(100vw - 18px));
-        left: auto;
-        right: 6px;
-        top: 6px;
-        transform: none;
-        max-height: calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-      }
-      body.mobile-ui .action-row {
-        position: sticky;
-        bottom: 0;
-        background: linear-gradient(to top, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
-        padding-top: 10px;
+        width: min(420px, calc(100vw - 28px));
+        max-height: calc(100vh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       }
       body.mobile-ui .fab-stack {
         bottom: calc(96px + env(safe-area-inset-bottom));
       }
-      body.mobile-ui .meta-corner {
-        max-width: calc(100vw - 96px);
+      body.mobile-ui .meta-stack {
+        max-width: calc(100vw - 104px);
       }
     }
 
@@ -522,7 +539,7 @@
     
     body.mobile-ui .topbar {
       top: max(8px, env(safe-area-inset-top));
-      width: min(420px, calc(100vw - 20px));
+      width: min(360px, calc(100vw - 28px));
       left: 50%;
       transform: translateX(-50%);
       padding: 0;
@@ -570,20 +587,19 @@
     body.mobile-ui .statusbar {
       left: 50%;
       transform: translateX(-50%);
-      width: min(420px, calc(100vw - 20px));
+      width: min(320px, calc(100vw - 28px));
       bottom: max(8px, env(safe-area-inset-bottom));
     }
-    body.mobile-ui .meta-corner {
-      left: 6px;
-      width: auto;
-      max-width: calc(100vw - 72px);
+    body.mobile-ui .meta-stack {
+      left: 8px;
+      max-width: calc(100vw - 92px);
       bottom: calc(72px + env(safe-area-inset-bottom));
     }
     body.mobile-ui .selection-card {
       left: 50%;
       right: auto;
       transform: translateX(-50%);
-      width: min(420px, calc(100vw - 20px));
+      width: min(360px, calc(100vw - 28px));
       bottom: calc(84px + env(safe-area-inset-bottom));
       border-radius: 20px;
       max-height: none;
@@ -613,7 +629,7 @@
       font-size: 10px;
     }
     body.mobile-ui .metric-btn .value {
-      font-size: 14px;
+      font-size: 13px;
       margin-top: 4px;
     }
     body.mobile-ui .metric-btn .hint {
@@ -622,7 +638,7 @@
     }
     body.mobile-ui .details-modal,
     body.mobile-ui .info-modal {
-      width: min(440px, calc(100vw - 20px));
+      width: min(400px, calc(100vw - 28px));
       max-height: calc(100vh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       padding: 14px;
       top: calc(10px + env(safe-area-inset-top));
@@ -726,14 +742,13 @@
       </div>
 
       <div class="quick-grid">
-        <button class="metric-btn" data-metric="trigger_score"><span class="label">Déclenchement</span><span class="value" id="selectionTrigger">-</span><span class="hint">Pourquoi cette note ?</span></button>
-        <button class="metric-btn" data-metric="structure_score"><span class="label">Organisation</span><span class="value" id="selectionStructure">-</span><span class="hint">Pourquoi cette note ?</span></button>
-        <button class="metric-btn" data-metric="chase_quality_score"><span class="label">Qualité chasse</span><span class="value" id="selectionQuality">-</span><span class="hint">Pourquoi cette note ?</span></button>
+        <button class="metric-btn" data-metric="trigger_score"><span class="label">Déclenchement</span><span class="value" id="selectionTrigger">-</span></button>
+        <button class="metric-btn" data-metric="structure_score"><span class="label">Organisation</span><span class="value" id="selectionStructure">-</span></button>
+        <button class="metric-btn" data-metric="chase_quality_score"><span class="label">Qualité chasse</span><span class="value" id="selectionQuality">-</span></button>
       </div>
 
       <div class="summary-box" id="selectionSummary">Touchez une cellule pour voir son résumé.</div>
 
-      <div class="touch-note">Interaction tactile : touchez une case pour ouvrir sa fiche, puis “Détails” pour approfondir.</div>
 
       <div class="action-row">
         <button class="primary-btn" id="openDetailsBtn">Détails</button>
@@ -782,7 +797,7 @@
       </div>
     </div>
 
-    <div class="meta-corner" id="metaLine">Chargement des données…</div>
+    <div class="meta-stack"><div class="meta-corner" id="metaCenter">Zone : chargement…</div><div class="meta-corner" id="metaRun">Run : chargement…</div></div>
 
     <div class="modal-backdrop" id="infoBackdrop"></div>
     <div class="info-modal" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
@@ -802,7 +817,8 @@
     const STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
     const CENTER = [4.8357, 45.7640];
 
-    const metaLine = document.getElementById('metaLine');
+    const metaCenter = document.getElementById('metaCenter');
+    const metaRun = document.getElementById('metaRun');
     const dayButtons = document.getElementById('dayButtons');
     const slotButtons = document.getElementById('slotButtons');
     const topbar = document.getElementById('topbar');
@@ -852,8 +868,8 @@
     let loaderPulseStart = 0;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
-    const GRID_ANIMATION_BATCH_SIZE = 4;
-    const GRID_ANIMATION_STEP_MS = 48;
+    const GRID_ANIMATION_BATCH_SIZE = 2;
+    const GRID_ANIMATION_STEP_MS = 64;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
     let userLocationMarker = null;
     const DEFAULT_CENTER = { lat: 45.7640, lon: 4.8357, label: 'Lyon' };
@@ -960,11 +976,30 @@
       if (panel === 'calendar' && !calendarOpen) topbar.classList.add('show-calendar');
     }
 
+    function formatFrenchRun(dateString) {
+      if (!dateString) return '—';
+      const parsed = new Date(dateString);
+      if (Number.isNaN(parsed.getTime())) return String(dateString);
+      const formatted = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(parsed).replace(',', '');
+      const tzPart = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: 'Europe/Paris', timeZoneName: 'shortOffset', hour: '2-digit'
+      }).formatToParts(parsed).find(part => part.type === 'timeZoneName')?.value || 'GMT+2';
+      return `${formatted} ${tzPart}`;
+    }
+
     function updateMetaLine() {
       const centerLabel = payload?.meta?.center?.label || currentCenter.label || 'Zone';
-      const generated = payload?.meta?.generated_at || '—';
-      const model = payload?.meta?.model || '—';
-      metaLine.textContent = `${centerLabel} · ${model} · ${generated}`;
+      const generated = formatFrenchRun(payload?.meta?.generated_at || '');
+      const model = payload?.meta?.model || 'arome_france';
+      metaCenter.textContent = `Zone : ${centerLabel}`;
+      metaRun.textContent = `Run ${model} : ${generated}`;
+    }
+
+    function setMetaMessage(message) {
+      metaCenter.textContent = message;
     }
 
     function setLoadingState(isLoading, message) {
@@ -972,7 +1007,7 @@
       aroundMeBtn.disabled = isLoading;
       locateBtn.disabled = isLoading;
       refreshBtn.disabled = isLoading;
-      if (message) metaLine.textContent = message;
+      if (message) setMetaMessage(message);
     }
 
     function showCurrentMarker(lon, lat) {
@@ -1004,27 +1039,22 @@
     }
 
     function targetZoomForDistance(distanceKm) {
-      if (distanceKm > 800) return 5.1;
-      if (distanceKm > 500) return 5.6;
-      if (distanceKm > 250) return 6.1;
-      if (distanceKm > 120) return 6.7;
-      if (distanceKm > 60) return 7.3;
-      if (distanceKm > 25) return 7.8;
+      if (distanceKm > 900) return 5.8;
+      if (distanceKm > 600) return 6.2;
+      if (distanceKm > 350) return 6.7;
+      if (distanceKm > 180) return 7.1;
+      if (distanceKm > 90) return 7.5;
+      if (distanceKm > 40) return 7.9;
       return 8.3;
     }
 
-    function minZoomForDistance(distanceKm) {
-      if (distanceKm > 1000) return 3.0;
-      if (distanceKm > 600) return 3.4;
-      if (distanceKm > 300) return 3.9;
-      if (distanceKm > 150) return 4.5;
-      if (distanceKm > 80) return 5.0;
-      if (distanceKm > 40) return 5.8;
-      return 6.8;
+    function minZoomForDistance(distanceKm, targetZoom) {
+      const drop = distanceKm > 700 ? 0.95 : distanceKm > 300 ? 0.8 : distanceKm > 120 ? 0.65 : distanceKm > 50 ? 0.5 : 0.35;
+      return Math.max(5.2, targetZoom - drop);
     }
 
     function durationForDistance(distanceKm) {
-      return Math.max(5600, Math.min(12800, 5200 + distanceKm * 9.6));
+      return Math.max(18000, Math.min(36000, 17000 + distanceKm * 24));
     }
 
     function animateCameraToCenter(center, zoomOverride = null) {
@@ -1032,12 +1062,13 @@
       const from = { lat: current.lat, lon: current.lng };
       const to = { lat: center.lat, lon: center.lon };
       const distanceKm = haversineKm(from, to);
+      const targetZoom = Number.isFinite(zoomOverride) ? zoomOverride : targetZoomForDistance(distanceKm);
       map.flyTo({
         center: [center.lon, center.lat],
-        zoom: Number.isFinite(zoomOverride) ? zoomOverride : targetZoomForDistance(distanceKm),
-        minZoom: minZoomForDistance(distanceKm),
-        speed: 0.18,
-        curve: 1.28,
+        zoom: targetZoom,
+        minZoom: minZoomForDistance(distanceKm, targetZoom),
+        speed: 0.05,
+        curve: 1.0,
         essential: true,
         duration: durationForDistance(distanceKm)
       });
@@ -1068,8 +1099,8 @@
         }
         const t = (now - loaderPulseStart) / 1000;
         const wave = (Math.sin(t * Math.PI * 1.25) + 1) / 2;
-        const fillOpacity = 0.07 + wave * 0.07;
-        const lineOpacity = 0.22 + wave * 0.16;
+        const fillOpacity = 0.05 + wave * 0.04;
+        const lineOpacity = 0.16 + wave * 0.08;
         map.setPaintProperty('grid-loader-fill', 'fill-opacity', fillOpacity);
         map.setPaintProperty('grid-loader-outline', 'line-opacity', lineOpacity);
         loaderPulseFrame = requestAnimationFrame(tick);
@@ -1265,7 +1296,7 @@
         source: 'grid-loader',
         paint: {
           'fill-color': '#7dd3fc',
-          'fill-opacity': 0.14,
+          'fill-opacity': 0.08,
         }
       });
       map.addLayer({
@@ -1275,7 +1306,7 @@
         paint: {
           'line-color': 'rgba(191,219,254,0.75)',
           'line-width': 1,
-          'line-opacity': 0.45,
+          'line-opacity': 0.24,
         }
       });
       animateRevealToSource('grid-loader', cells, buildGeoJSON, startLoaderPulse);
@@ -1642,6 +1673,49 @@
       infoModal.classList.remove('visible');
     }
 
+    function metricTone(metricKey, rawValue) {
+      const value = Number(rawValue);
+      if (!Number.isFinite(value)) return 'neutral';
+      switch (metricKey) {
+        case 'score_global':
+        case 'confidence_score':
+        case 'trigger_score':
+        case 'structure_score':
+        case 'chase_quality_score':
+          return value >= 60 ? 'positive' : value <= 35 ? 'negative' : 'neutral';
+        case 'mucape':
+          return value >= 800 ? 'positive' : value < 300 ? 'negative' : 'neutral';
+        case 'shear_ms':
+          return value >= 14 ? 'positive' : value < 8 ? 'negative' : 'neutral';
+        case 'relative_humidity_2m':
+          return value >= 65 ? 'positive' : value < 45 ? 'negative' : 'neutral';
+        case 'vapour_pressure_deficit':
+          return value <= 1.5 ? 'positive' : value > 2.2 ? 'negative' : 'neutral';
+        case 'wet_bulb_temperature_2m':
+          return value >= 15 ? 'positive' : value < 10 ? 'negative' : 'neutral';
+        case 'dewpoint_c':
+          return value >= 15 ? 'positive' : value < 10 ? 'negative' : 'neutral';
+        case 'temp_c':
+          return value >= 20 && value <= 30 ? 'positive' : value < 15 || value > 34 ? 'negative' : 'neutral';
+        case 'wind_gusts_10m':
+          return value >= 12 ? 'positive' : value < 6 ? 'negative' : 'neutral';
+        case 'cloud_cover_low':
+        case 'cloud_cover_mid':
+          return value <= 55 ? 'positive' : value > 75 ? 'negative' : 'neutral';
+        case 'cloud_cover_high':
+          return value <= 70 ? 'positive' : value >= 90 ? 'negative' : 'neutral';
+        default:
+          return 'neutral';
+      }
+    }
+
+    function applyMetricTone(element, metricKey, rawValue) {
+      if (!element) return;
+      element.classList.remove('metric-value-positive', 'metric-value-negative', 'metric-value-neutral');
+      const tone = metricTone(metricKey, rawValue);
+      element.classList.add(`metric-value-${tone}`);
+    }
+
     function showSelection(p) {
       selectionTitle.textContent = p.zone || 'Zone';
       selectionSubtitle.textContent = `${p.day_label || '—'} · ${p.slot_label || '—'} · ${p.selected_hour || '—'}`;
@@ -1652,6 +1726,11 @@
       selectionTrigger.textContent = safe(p.trigger_score);
       selectionStructure.textContent = safe(p.structure_score);
       selectionQuality.textContent = safe(p.chase_quality_score);
+      applyMetricTone(selectionScore, 'score_global', p.score_global);
+      applyMetricTone(selectionConfidence, 'confidence_score', p.confidence_score);
+      applyMetricTone(selectionTrigger, 'trigger_score', p.trigger_score);
+      applyMetricTone(selectionStructure, 'structure_score', p.structure_score);
+      applyMetricTone(selectionQuality, 'chase_quality_score', p.chase_quality_score);
       selectionSummary.textContent = p.summary || 'Aucun résumé disponible.';
       selectionCard.classList.add('visible');
     }
@@ -1667,18 +1746,42 @@
       const p = selectedFeature;
       detailsSubtitle.textContent = `${p.zone || 'Zone'} · ${p.day_label || '—'} · ${p.slot_label || '—'}`;
       detailsSummary.textContent = p.summary || 'Aucun résumé disponible.';
-      document.getElementById('dCape').textContent = safe(p.mucape);
-      document.getElementById('dShear').textContent = safe(p.shear_ms, ' m/s');
-      document.getElementById('dRh').textContent = safe(p.relative_humidity_2m, ' %');
-      document.getElementById('dVpd').textContent = safe(p.vapour_pressure_deficit);
-      document.getElementById('dWetbulb').textContent = safe(p.wet_bulb_temperature_2m, ' °C');
-      document.getElementById('dDewpoint').textContent = safe(p.dewpoint_c, ' °C');
-      document.getElementById('dTemp').textContent = safe(p.temp_c, ' °C');
-      document.getElementById('dGusts').textContent = safe(p.wind_gusts_10m, ' m/s');
-      document.getElementById('dCloudLow').textContent = safe(p.cloud_cover_low, ' %');
-      document.getElementById('dCloudMid').textContent = safe(p.cloud_cover_mid, ' %');
-      document.getElementById('dCloudHigh').textContent = safe(p.cloud_cover_high, ' %');
-      document.getElementById('dHour').textContent = safe(p.selected_hour);
+      const dCape = document.getElementById('dCape');
+      const dShear = document.getElementById('dShear');
+      const dRh = document.getElementById('dRh');
+      const dVpd = document.getElementById('dVpd');
+      const dWetbulb = document.getElementById('dWetbulb');
+      const dDewpoint = document.getElementById('dDewpoint');
+      const dTemp = document.getElementById('dTemp');
+      const dGusts = document.getElementById('dGusts');
+      const dCloudLow = document.getElementById('dCloudLow');
+      const dCloudMid = document.getElementById('dCloudMid');
+      const dCloudHigh = document.getElementById('dCloudHigh');
+      const dHour = document.getElementById('dHour');
+      dCape.textContent = safe(p.mucape);
+      dShear.textContent = safe(p.shear_ms, ' m/s');
+      dRh.textContent = safe(p.relative_humidity_2m, ' %');
+      dVpd.textContent = safe(p.vapour_pressure_deficit);
+      dWetbulb.textContent = safe(p.wet_bulb_temperature_2m, ' °C');
+      dDewpoint.textContent = safe(p.dewpoint_c, ' °C');
+      dTemp.textContent = safe(p.temp_c, ' °C');
+      dGusts.textContent = safe(p.wind_gusts_10m, ' m/s');
+      dCloudLow.textContent = safe(p.cloud_cover_low, ' %');
+      dCloudMid.textContent = safe(p.cloud_cover_mid, ' %');
+      dCloudHigh.textContent = safe(p.cloud_cover_high, ' %');
+      dHour.textContent = safe(p.selected_hour);
+      applyMetricTone(dCape, 'mucape', p.mucape);
+      applyMetricTone(dShear, 'shear_ms', p.shear_ms);
+      applyMetricTone(dRh, 'relative_humidity_2m', p.relative_humidity_2m);
+      applyMetricTone(dVpd, 'vapour_pressure_deficit', p.vapour_pressure_deficit);
+      applyMetricTone(dWetbulb, 'wet_bulb_temperature_2m', p.wet_bulb_temperature_2m);
+      applyMetricTone(dDewpoint, 'dewpoint_c', p.dewpoint_c);
+      applyMetricTone(dTemp, 'temp_c', p.temp_c);
+      applyMetricTone(dGusts, 'wind_gusts_10m', p.wind_gusts_10m);
+      applyMetricTone(dCloudLow, 'cloud_cover_low', p.cloud_cover_low);
+      applyMetricTone(dCloudMid, 'cloud_cover_mid', p.cloud_cover_mid);
+      applyMetricTone(dCloudHigh, 'cloud_cover_high', p.cloud_cover_high);
+      applyMetricTone(dHour, 'selected_hour', NaN);
       modalBackdrop.classList.add('visible');
       detailsModal.classList.add('visible');
     }
@@ -1705,7 +1808,7 @@
 
     function locateUser() {
       if (!navigator.geolocation) {
-        metaLine.textContent = 'Géolocalisation non disponible sur cet appareil.';
+        setMetaMessage('Géolocalisation non disponible sur cet appareil.');
         return;
       }
       setLoadingState(true, 'Recherche de votre position…');
@@ -1715,13 +1818,13 @@
             await applyCenter({ lat: coords.latitude, lon: coords.longitude, label: 'Autour de moi' }, { showMarker: true, zoom: 8.8 });
           } catch (error) {
             console.warn(error);
-            metaLine.textContent = 'Impossible de recalculer la zone autour de vous.';
+            setMetaMessage('Impossible de recalculer la zone autour de vous.');
           } finally {
             setLoadingState(false);
           }
         },
         () => {
-          metaLine.textContent = 'Position refusée ou indisponible.';
+          setMetaMessage('Position refusée ou indisponible.');
           setLoadingState(false);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -1785,7 +1888,7 @@
         await loadData(force);
       } catch (err) {
         console.warn(err);
-        metaLine.textContent = 'Impossible d’actualiser la zone courante.';
+        setMetaMessage('Impossible d’actualiser la zone courante.');
       } finally {
         setLoadingState(false);
       }
@@ -1801,7 +1904,7 @@
     async function handleCitySearch() {
       const query = cityInput.value.trim();
       if (!query) {
-        metaLine.textContent = 'Saisissez une ville avant de lancer la recherche.';
+        setMetaMessage('Saisissez une ville avant de lancer la recherche.');
         return;
       }
       setLoadingState(true, `Recherche de ${query}…`);
@@ -1810,7 +1913,7 @@
         await applyCenter(target, { zoom: 8.6 });
       } catch (error) {
         console.warn(error);
-        metaLine.textContent = `Ville introuvable ou service indisponible.`;
+        setMetaMessage('Ville introuvable ou service indisponible.');
       } finally {
         setLoadingState(false);
       }
@@ -1858,7 +1961,7 @@
       cityInput.value = currentCenter.label;
       await loadData().catch(err => {
         console.warn(err);
-        metaLine.textContent = `Impossible de charger la zone initiale.`;
+        setMetaMessage('Impossible de charger la zone initiale.');
       });
     });
   </script>

@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Iterable
 
@@ -594,7 +595,7 @@ def group_for_output(rows: list[OutputRow], center_lat: float, center_lon: float
             }
         )
 
-    generated_at = datetime.now().isoformat(timespec="seconds")
+    generated_at = datetime.now(ZoneInfo("Europe/Paris")).isoformat(timespec="seconds")
     return {
         "meta": {
             "generated_at": generated_at,
