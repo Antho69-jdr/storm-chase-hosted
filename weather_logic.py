@@ -24,7 +24,7 @@ DEFAULT_CENTER_LABEL = "Lyon"
 HALF_BOX_KM_LAT = 25.0
 HALF_BOX_KM_LON = 25.0
 CELL_SIZE_KM = 6.5
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 MODEL = "arome_france"
 FORECAST_HOURS = 96
 
@@ -159,19 +159,28 @@ def get_json(url: str, retries: int = 4, timeout: int = 60) -> dict:
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "storm-chase-prototype/2.0"})
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "storm-chase-prototype/2.1", "Accept": "application/json"},
+            )
             with urllib.request.urlopen(req, timeout=timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as err:
+            last_error = err
+            print(f"Erreur réseau tentative {attempt}/{retries}: {err}")
+            if getattr(err, "code", None) == 429:
+                time.sleep(min(8, 1.5 * attempt))
+            else:
+                time.sleep(1.5 * attempt)
         except (
             urllib.error.URLError,
-            urllib.error.HTTPError,
             TimeoutError,
             ssl.SSLError,
             socket.timeout,
         ) as err:
             last_error = err
             print(f"Erreur réseau tentative {attempt}/{retries}: {err}")
-            time.sleep(2 * attempt)
+            time.sleep(1.5 * attempt)
     raise RuntimeError(f"Échec après {retries} tentatives: {last_error}")
 
 
