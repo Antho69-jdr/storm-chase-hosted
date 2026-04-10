@@ -42,15 +42,20 @@
     }
 
     .topbar {
-      top: 10px;
+      top: 12px;
       right: 12px;
       left: auto;
       transform: none;
-      width: min(520px, calc(100vw - 96px));
+      width: 56px;
       border-radius: 18px;
-      padding: 10px 12px;
+      padding: 0;
       display: grid;
-      gap: 8px;
+      gap: 10px;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      overflow: visible;
     }
 
     .location-bar {
@@ -76,14 +81,25 @@
     .location-input:focus { border-color: rgba(59,130,246,0.6); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
 
     .panel-card {
-      display: grid;
-      gap: 8px;
-    }
-
-    .mobile-toggle-bar {
       display: none;
       gap: 8px;
-      justify-content: flex-end;
+      position: absolute;
+      right: 58px;
+      width: min(360px, calc(100vw - 152px));
+      padding: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+    }
+    .search-panel { top: 0; }
+    .calendar-panel { top: 56px; }
+
+    .mobile-toggle-bar {
+      display: grid;
+      gap: 10px;
+      justify-items: end;
     }
 
     .mobile-toggle-btn,
@@ -426,10 +442,11 @@
       position: absolute;
       z-index: 17;
       right: 12px;
-      top: 250px;
+      top: 188px;
       bottom: auto;
       display: grid;
       gap: 10px;
+      justify-items: end;
     }
     .fab {
       width: 46px;
@@ -455,7 +472,7 @@
     .floating-chip {
       position: absolute;
       z-index: 17;
-      top: calc(418px + env(safe-area-inset-top));
+      top: calc(478px + env(safe-area-inset-top));
       right: 12px;
       display: none;
       align-items: center;
@@ -472,16 +489,17 @@
     .floating-chip.visible { display: inline-flex; }
 
     .maplibregl-ctrl-top-right {
-      top: 174px;
+      top: 344px;
       right: 12px;
     }
     .grid-focus-corner {
       position: absolute;
       z-index: 16;
-      top: 66px;
+      top: 122px;
       right: 12px;
       display: grid;
       gap: 10px;
+      justify-items: end;
     }
     .grid-focus-btn {
       width: 46px;
@@ -595,29 +613,26 @@
 
     
     body.mobile-ui .topbar {
-      top: max(8px, env(safe-area-inset-top));
-      right: 6px;
+      top: max(12px, env(safe-area-inset-top));
+      right: 12px;
       left: auto;
       transform: none;
-      width: min(360px, calc(100vw - 72px));
+      width: 56px;
       padding: 0;
       background: transparent;
       border: 0;
       box-shadow: none;
       backdrop-filter: none;
+      overflow: visible;
     }
     body.mobile-ui .mobile-toggle-bar {
-      display: flex;
+      display: grid;
+      gap: 10px;
+      justify-items: end;
     }
     body.mobile-ui .topbar .panel-card {
       display: none;
-      margin-top: 8px;
-      padding: 8px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      backdrop-filter: blur(12px);
-      box-shadow: var(--shadow);
+      margin-top: 0;
     }
     body.mobile-ui .topbar.show-search .search-panel,
     body.mobile-ui .topbar.show-calendar .calendar-panel {
@@ -706,7 +721,7 @@
     }
     body.mobile-ui .fab-stack {
       right: 12px;
-      top: 250px;
+      top: calc(188px + env(safe-area-inset-top));
       bottom: auto;
     }
     body.mobile-ui .fab { width: 46px; height: 46px; min-width: 46px; min-height: 46px; }
@@ -718,7 +733,7 @@
       padding: 14px;
     }
     body.mobile-ui .grid-focus-corner {
-      top: calc(66px + env(safe-area-inset-top));
+      top: calc(122px + env(safe-area-inset-top));
       right: 12px;
     }
   </style>
@@ -871,7 +886,7 @@
 
     <div class="meta-stack"><div class="meta-corner" id="metaCenter">Zone : chargement…</div><div class="meta-corner" id="metaRun">Modèle arome-france : chargement…</div></div>
 
-    <div class="modal-backdrop" id="drawerBackdrop"></div>
+    <div class="modal-backdrop" id="drawerBackdrop" style="display:none !important;"></div>
     <aside class="info-drawer" id="infoDrawer" aria-labelledby="infoDrawerTitle">
       <div class="details-header">
         <div>

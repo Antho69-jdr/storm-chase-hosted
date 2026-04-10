@@ -120,8 +120,8 @@ def build_grid(center_lat: float = DEFAULT_CENTER_LAT, center_lon: float = DEFAU
     step_lat = km_to_deg_lat(CELL_SIZE_KM)
     safe_prefix = "".join(ch for ch in zone_prefix if ch.isalnum())[:14] or "Zone"
 
-    row_count = math.ceil((HALF_BOX_KM_LAT * 2) / CELL_SIZE_KM) + 1
-    col_count = math.ceil((HALF_BOX_KM_LON * 2) / CELL_SIZE_KM) + 1
+    row_count = math.ceil((HALF_BOX_KM_LAT * 2) / CELL_SIZE_KM) + 3
+    col_count = math.ceil((HALF_BOX_KM_LON * 2) / CELL_SIZE_KM) + 3
     if row_count % 2 == 0:
         row_count += 1
     if col_count % 2 == 0:

@@ -62,9 +62,8 @@
     let activeFetchToken = 0;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
-    const GRID_ANIMATION_BATCH_SIZE = 1;
-    const GRID_ANIMATION_STEP_MS = 34;
-    const GRID_ANIMATION_CELL_MS = 210;
+    const GRID_ANIMATION_TOTAL_MS = 280;
+    const GRID_ANIMATION_CELL_MS = 180;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
     let userLocationMarker = null;
     const DEFAULT_CENTER = { lat: 45.7640, lon: 4.8357, label: 'Lyon' };
@@ -151,11 +150,7 @@
     }
 
     function applyResponsiveMode() {
-      const coarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches || navigator.maxTouchPoints > 1;
-      const smallViewport = window.matchMedia('(max-width: 1024px)').matches;
-      const mobileLike = coarsePointer || smallViewport;
-      document.body.classList.toggle('mobile-ui', mobileLike);
-      if (!mobileLike) closeTopPanels();
+      document.body.classList.add('mobile-ui');
     }
 
     function closeTopPanels() {
@@ -249,7 +244,7 @@
     }
 
     function durationForDistance(distanceKm) {
-      return Math.max(4200, Math.min(8800, 3800 + distanceKm * 5.2));
+      return Math.max(3500, Math.min(7400, (3800 + distanceKm * 5.2) / 1.2));
     }
 
     function animateCameraToCenter(center, zoomOverride = null) {
@@ -338,9 +333,6 @@
       if (map.getLayer('grid-fill')) {
         setGridFillFactor(1);
         animateGridFillFactor(1, 0, 180);
-      }
-      if (map.getLayer('grid-highlight')) {
-        animateLayerPaintNumber('grid-highlight', 'line-opacity', 1, 0, 160);
       }
     }
 
@@ -471,7 +463,7 @@
       const fillOpacity = entering
         ? Math.max(0, Math.min(1, entering.opacity))
         : (bestCellsMode && !cell.is_loader
-            ? (isBest ? Math.min(0.84, baseOpacity + 0.1) : Math.max(0.045, baseOpacity * 0.22))
+            ? (isBest ? Math.min(0.88, Math.max(baseOpacity, 0.42)) : Math.max(0.035, baseOpacity * 0.10))
             : baseOpacity);
       const latOffset = entering ? entering.latOffset : 0;
       const lat = Number(cell.lat) + latOffset;
@@ -487,13 +479,15 @@
 
     function buildGeoJSON(cells, options = {}) {
       const bestZones = computeBestZoneSet(cells);
-      const enteringCell = options.enteringCell || null;
-      const enteringProgress = options.enteringProgress ?? 1;
-      const features = cells.map(cell => cellToFeature(cell, bestZones));
-      if (enteringCell) {
-        const latOffset = enteringCell.cell_height_deg * (1 - enteringProgress) * 1.8;
-        features.push(cellToFeature(enteringCell, bestZones, { opacity: opacityFromConfidence(enteringCell.confidence_score) * enteringProgress, latOffset }));
-      }
+      const progressByZone = options.progressByZone || null;
+      const features = cells.map(cell => {
+        if (!progressByZone) return cellToFeature(cell, bestZones);
+        const progress = Math.max(0, Math.min(1, progressByZone.get(cell.zone) ?? 1));
+        return cellToFeature(cell, bestZones, {
+          opacity: opacityFromConfidence(cell.confidence_score) * progress,
+          latOffset: cell.cell_height_deg * (1 - progress) * 1.6,
+        });
+      });
       return { type: 'FeatureCollection', features };
     }
 
@@ -505,41 +499,40 @@
       });
     }
 
-    function animateRevealToSource(sourceId, cells, geojsonBuilder = buildGeoJSON, onStep = null) {
+    function animateRevealToSource(sourceId, cells, geojsonBuilder = buildGeoJSON, onStep = null, onDone = null) {
       const token = ++gridAnimationToken;
       const orderedCells = sortCellsForReveal(cells);
       const source = map.getSource(sourceId);
       if (!source) return;
-      source.setData(geojsonBuilder([]));
-      let revealed = [];
-      const step = (index) => {
+      const totalMs = GRID_ANIMATION_TOTAL_MS;
+      const staggerMs = orderedCells.length > 1 ? Math.min(12, totalMs / orderedCells.length) : 0;
+      const start = performance.now();
+      const progressByZone = new Map();
+      const frame = (now) => {
         if (token !== gridAnimationToken) return;
-        if (index >= orderedCells.length) {
-          source.setData(geojsonBuilder(revealed));
-          if (typeof onStep === 'function') onStep();
-          return;
+        const elapsed = now - start;
+        let finished = 0;
+        progressByZone.clear();
+        for (let i = 0; i < orderedCells.length; i += 1) {
+          const cell = orderedCells[i];
+          const begin = i * staggerMs;
+          const progress = Math.max(0, Math.min(1, (elapsed - begin) / GRID_ANIMATION_CELL_MS));
+          progressByZone.set(cell.zone, progress);
+          if (progress >= 1) finished += 1;
         }
-        const enteringCell = orderedCells[index];
-        const start = performance.now();
-        const frame = (now) => {
-          if (token !== gridAnimationToken) return;
-          const progress = Math.min(1, (now - start) / GRID_ANIMATION_CELL_MS);
-          source.setData(geojsonBuilder(revealed, { enteringCell, enteringProgress: progress }));
-          if (typeof onStep === 'function') onStep();
-          if (progress < 1) {
-            requestAnimationFrame(frame);
-          } else {
-            revealed = [...revealed, enteringCell];
-            window.setTimeout(() => step(index + GRID_ANIMATION_BATCH_SIZE), GRID_ANIMATION_STEP_MS);
-          }
-        };
-        requestAnimationFrame(frame);
+        source.setData(geojsonBuilder(orderedCells, { progressByZone }));
+        if (typeof onStep === 'function') onStep();
+        if (finished < orderedCells.length) {
+          requestAnimationFrame(frame);
+        } else if (typeof onDone === 'function') {
+          onDone();
+        }
       };
-      step(0);
+      requestAnimationFrame(frame);
     }
 
-    function animateGridReveal(cells) {
-      animateRevealToSource('grid', cells, buildGeoJSON, updateHighlight);
+    function animateGridReveal(cells, onDone = null) {
+      animateRevealToSource('grid', cells, buildGeoJSON, updateHighlight, onDone);
     }
 
     function ensureSource(id, data) {
@@ -568,16 +561,14 @@
           'fill-opacity': 0,
         }
       });
-      animateRevealToSource('grid-loader', cells, buildGeoJSON, () => {
+      animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0, 0.13, 180, () => {
         if (map.getLayer('grid-loader-fill')) startLoaderPulse();
       });
-      animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0, 0.13, 220);
     }
 
     function removeLayers() {
       gridAnimationToken += 1;
       removeLoaderLayers();
-      if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
       if (map.getLayer('grid-fill')) map.removeLayer('grid-fill');
       if (map.getSource('grid')) map.removeSource('grid');
       map.off('click', 'grid-fill', onGridClick);
@@ -586,9 +577,6 @@
     }
 
     function addLayers(data) {
-      if (map.getLayer('grid-loader-fill')) {
-        animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0.10, 0, 180);
-      }
       ensureSource('grid', data);
       map.addLayer({
         id: 'grid-fill',
@@ -599,21 +587,10 @@
           'fill-opacity': ['*', ['get', 'fill_opacity'], 0],
         }
       });
-      map.addLayer({
-        id: 'grid-highlight',
-        type: 'line',
-        source: 'grid',
-        paint: {
-          'line-color': '#ffffff',
-          'line-width': 2.2,
-          'line-opacity': ['case', ['==', ['get', 'zone'], selectedFeature?.zone || ''], 1, 0],
-        }
-      });
 
       map.on('click', 'grid-fill', onGridClick);
       map.on('mouseenter', 'grid-fill', onGridEnter);
       map.on('mouseleave', 'grid-fill', onGridLeave);
-      animateGridFillFactor(0, 1, 220, updateHighlight);
     }
 
     function onGridEnter() {
@@ -632,10 +609,7 @@
       updateHighlight();
     }
 
-    function updateHighlight() {
-      if (!map.getLayer('grid-highlight')) return;
-      map.setPaintProperty('grid-highlight', 'line-opacity', ['case', ['==', ['get', 'zone'], selectedFeature?.zone || ''], 1, 0]);
-    }
+    function updateHighlight() {}
 
     function updateBestCellsButton() {
       if (!bestCellsBtn) return;
@@ -678,7 +652,15 @@
         return;
       }
       addLayers(buildGeoJSON(cells));
-      animateGridReveal(cells);
+      stopLoaderPulse();
+      animateGridReveal(cells, () => {
+        if (map.getLayer('grid-loader-fill')) {
+          const currentOpacity = map.getPaintProperty('grid-loader-fill', 'fill-opacity');
+          animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', Number(currentOpacity || 0.08), 0, 180, removeLoaderLayers);
+        } else {
+          removeLoaderLayers();
+        }
+      });
     }
 
     function safe(value, suffix = '') {
@@ -1207,12 +1189,10 @@
 
     function openInfoDrawer() {
       infoDrawer.classList.add('visible');
-      drawerBackdrop.classList.add('visible');
     }
 
     function closeInfoDrawer() {
       infoDrawer.classList.remove('visible');
-      drawerBackdrop.classList.remove('visible');
     }
 
     toggleCalendarBtn.addEventListener('click', () => toggleTopPanel('calendar'));
