@@ -627,6 +627,7 @@
     }
 
     .app-loader {
+      display: none !important;
       position: absolute;
       inset: 0;
       z-index: 40;
@@ -832,7 +833,7 @@
 </head>
 <body>
   <div id="app">
-    <div class="app-loader" id="appLoader">
+    <div class="app-loader hidden" id="appLoader" aria-hidden="true">
       <div class="app-loader-card">
         <img class="app-loader-logo" src="/static/logo-objectif-foudre.svg" alt="Objectif Foudre" />
         <div class="app-loader-title">Objectif Foudre</div>
@@ -1098,7 +1099,7 @@
     const GRID_ANIMATION_CELL_MS = 220;
     const GRID_ANIMATION_STAGGER_SPAN_MS = 70;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
-    const APP_LOADER_MIN_MS = 700;
+    const APP_LOADER_MIN_MS = 0;
     let userLocationMarker = null;
     let shouldAnimateNextGrid = true;
     let hasCompletedInitialLoad = false;
