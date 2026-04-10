@@ -1,11 +1,10 @@
-const CACHE_NAME = 'storm-chase-mobile-v1';
+const CACHE_NAME = 'storm-chase-v2';
 const ASSETS = [
-  './',
-  './maplibre_storm_chase_mobile.html',
-  './storm-chase.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './orages_output_horizons.json'
+  '/',
+  '/static/storm-chase.webmanifest',
+  '/static/icons/icon-192.png',
+  '/static/icons/icon-512.png',
+  '/static/logo-objectif-foudre.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -19,21 +18,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
-  if (url.pathname.endsWith('orages_output_horizons.json')) {
+  const isStaticAsset = url.origin === self.location.origin;
+
+  if (isStaticAsset) {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
+      caches.match(event.request).then((cached) => cached || fetch(event.request).catch(() => caches.match('/')))
     );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).catch(() => caches.match('./maplibre_storm_chase_mobile.html')))
-  );
+  event.respondWith(fetch(event.request).catch(() => caches.match('/')));
 });

@@ -26,3 +26,13 @@
 ## Comportement
 - cache serveur 15 min
 - si un refresh échoue, le backend renvoie la dernière version en cache si elle existe
+
+## Source front officielle
+- `static/index.html` : interface active et fichier maître pour l'UI
+- `_archive/script.js` et `_archive/check.js` : anciennes versions conservées hors circuit
+
+## Correctifs inclus dans cette version
+- manifeste PWA réaligné sur l'application actuelle (`start_url: /`)
+- service worker nettoyé et versionné (`storm-chase-v2`)
+- UI d'installation affichable aussi sur desktop si l'installation est disponible
+- `forecast_hours` synchronisé avec `FORECAST_HOURS` dans `weather_logic.py`

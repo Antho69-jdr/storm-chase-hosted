@@ -192,7 +192,7 @@ def build_api_url(points: list[Point]) -> str:
         "longitude": longitudes,
         "hourly": ",".join(HOURLY_VARS),
         "models": MODEL,
-        "forecast_hours": str(72),
+        "forecast_hours": str(FORECAST_HOURS),
         "timezone": TIMEZONE,
         "wind_speed_unit": "ms",
         "format": "json",
