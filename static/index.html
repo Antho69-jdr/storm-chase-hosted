@@ -34,6 +34,8 @@
       --rail-top-fab: 244px;
       --rail-top-map: 360px;
       --rail-btn-size: 46px;
+      --right-rail-width: 46px;
+      --right-rail-gap: 10px;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
@@ -56,11 +58,12 @@
       right: var(--rail-right);
       left: auto;
       transform: none;
-      width: 56px;
+      width: var(--right-rail-width);
       border-radius: 18px;
       padding: 0;
       display: grid;
-      gap: 10px;
+      gap: var(--right-rail-gap);
+      justify-items: stretch;
       background: transparent;
       border: 0;
       box-shadow: none;
@@ -127,8 +130,8 @@
 
     .mobile-toggle-bar {
       display: grid;
-      gap: 10px;
-      justify-items: end;
+      gap: var(--right-rail-gap);
+      justify-items: stretch;
     }
 
     .mobile-toggle-btn,
@@ -154,7 +157,29 @@
       cursor: pointer;
     }
 
-    .icon-svg {
+    
+    .mobile-toggle-btn,
+    .icon-only-btn,
+    .grid-focus-btn,
+    .fab,
+    #toggleCalendarBtn,
+    #toggleSearchBtn,
+    #bestCellsBtn,
+    #infoDrawerBtn,
+    #locateBtn,
+    #refreshBtn {
+      width: var(--rail-btn-size) !important;
+      min-width: var(--rail-btn-size) !important;
+      max-width: var(--rail-btn-size) !important;
+      height: var(--rail-btn-size) !important;
+      min-height: var(--rail-btn-size) !important;
+      max-height: var(--rail-btn-size) !important;
+      padding: 0 !important;
+      display: inline-grid !important;
+      place-items: center !important;
+    }
+
+.icon-svg {
       width: 20px;
       height: 20px;
       display: block;
@@ -487,9 +512,10 @@
       right: var(--rail-right);
       top: var(--rail-top-fab);
       bottom: auto;
+      width: var(--right-rail-width);
       display: grid;
-      gap: 10px;
-      justify-items: end;
+      gap: var(--right-rail-gap);
+      justify-items: stretch;
     }
     .fab {
       font-size: 0;
@@ -529,9 +555,10 @@
       z-index: 16;
       top: var(--rail-top-focus);
       right: var(--rail-right);
+      width: var(--right-rail-width);
       display: grid;
-      gap: 10px;
-      justify-items: end;
+      gap: var(--right-rail-gap);
+      justify-items: stretch;
     }
     .grid-focus-btn {
       color: #e5edf9;
@@ -1167,19 +1194,22 @@
       topbar.classList.remove('show-search', 'show-calendar');
     }
 
-    function hideAppLoader() {
+    function hideAppLoader(force = false) {
       if (!appLoader || appLoader.classList.contains('hidden')) return;
-      const remaining = Math.max(0, APP_LOADER_MIN_MS - (performance.now() - appLoaderStartedAt));
+      if (appLoaderFailsafe) { clearTimeout(appLoaderFailsafe); appLoaderFailsafe = null; }
+      const remaining = force ? 0 : Math.max(0, APP_LOADER_MIN_MS - (performance.now() - appLoaderStartedAt));
       window.setTimeout(() => appLoader.classList.add('hidden'), remaining);
     }
 
     function positionPanelToButton(panel, button) {
-      if (!panel || !button || !topbar.classList.contains('show-search') && !topbar.classList.contains('show-calendar')) return;
+      if (!panel || !button || (!topbar.classList.contains('show-search') && !topbar.classList.contains('show-calendar'))) return;
       panel.style.top = '0px';
       const buttonCenter = button.offsetTop + (button.offsetHeight / 2);
       const panelHeight = panel.offsetHeight || 0;
+      const railHeight = topbar.offsetHeight || window.innerHeight;
       const rawTop = buttonCenter - (panelHeight / 2);
-      panel.style.top = `${Math.max(0, Math.round(rawTop))}px`;
+      const clampedTop = Math.max(0, Math.min(rawTop, Math.max(0, railHeight - panelHeight)));
+      panel.style.top = `${Math.round(clampedTop)}px`;
     }
 
     function alignTopPanels() {
@@ -1373,14 +1403,34 @@
     async function geocodeCity(query, signal) {
       const q = query.trim();
       if (!q) throw new Error('Ville vide');
-      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=fr&format=json`;
-      const response = await fetch(url, { cache: 'no-store', signal });
-      if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
-      const data = await response.json();
-      const first = data?.results?.[0];
-      if (!first) throw new Error('Aucun résultat');
-      const labelParts = [first.name, first.admin1, first.country].filter(Boolean);
-      return { lat: Number(first.latitude), lon: Number(first.longitude), label: labelParts.join(', ') || first.name };
+      const variants = Array.from(new Set([
+        q,
+        q.normalize('NFD').replace(/[̀-ͯ]/g, ''),
+        q.replace(/[-_]+/g, ' ')
+      ].map(v => v.trim()).filter(Boolean)));
+      const attempts = [];
+      for (const variant of variants) {
+        attempts.push(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(variant)}&count=8&language=fr&countryCode=FR&format=json`);
+        attempts.push(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(variant)}&count=8&language=fr&format=json`);
+      }
+      let lastErr = null;
+      for (const url of attempts) {
+        try {
+          const response = await fetch(url, { cache: 'no-store', signal });
+          if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
+          const data = await response.json();
+          const results = Array.isArray(data?.results) ? data.results : [];
+          if (!results.length) continue;
+          const exact = results.find(r => String(r.name || '').toLowerCase() === q.toLowerCase());
+          const first = exact || results[0];
+          const labelParts = [first.name, first.admin1, first.country].filter(Boolean);
+          return { lat: Number(first.latitude), lon: Number(first.longitude), label: labelParts.join(', ') || first.name };
+        } catch (err) {
+          if (err?.name === 'AbortError') throw err;
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Aucun résultat');
     }
 
     async function applyCenter(center, options = {}) {
@@ -1396,7 +1446,13 @@
       showLoadingGrid(currentCenter);
       if (options.showMarker) showCurrentMarker(currentCenter.lon, currentCenter.lat);
       closeTopPanels();
-      await loadData(options.force === true, localToken);
+      try {
+        await loadData(options.force === true, localToken);
+      } catch (err) {
+        removeLoaderLayers();
+        if (!hasCompletedInitialLoad) hideAppLoader(true);
+        throw err;
+      }
     }
 
     function renderDayButtons() {
@@ -2254,7 +2310,15 @@
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.warn(error);
-          setMetaMessage('Ville introuvable ou service indisponible.');
+          const message = String(error?.message || '');
+          if (/Aucun résultat|Ville vide/i.test(message)) {
+            setMetaMessage('Ville introuvable. Essaie un nom plus complet.');
+          } else if (/Geocoding HTTP/i.test(message)) {
+            setMetaMessage('Service de recherche de ville temporairement indisponible.');
+          } else {
+            setMetaMessage('La ville a été trouvée, mais les données météo n’ont pas pu être chargées.');
+          }
+          if (!hasCompletedInitialLoad) hideAppLoader(true);
         }
       } finally {
         geocodeController = null;
