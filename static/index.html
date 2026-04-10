@@ -315,7 +315,7 @@
       inset: 0;
       z-index: 20;
       background: var(--overlay-backdrop);
-      backdrop-filter: blur(3px);
+      backdrop-filter: none;
       display: none;
     }
     .modal-backdrop.visible { display: block; }
@@ -426,21 +426,24 @@
       position: absolute;
       z-index: 17;
       right: 12px;
-      bottom: 110px;
+      top: 250px;
+      bottom: auto;
       display: grid;
       gap: 10px;
     }
     .fab {
-      width: 52px;
-      height: 52px;
-      min-width: 52px;
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      min-height: 46px;
       padding: 0;
-      border-radius: 999px;
-      display: grid;
+      border-radius: 12px;
+      display: inline-grid;
       place-items: center;
       background: rgba(10, 18, 32, 0.92);
+      border: 1px solid var(--border);
       box-shadow: var(--shadow);
-      font-size: 20px;
+      font-size: 0;
     }
     .fab.small-label {
       width: auto;
@@ -452,7 +455,7 @@
     .floating-chip {
       position: absolute;
       z-index: 17;
-      top: calc(166px + env(safe-area-inset-top));
+      top: calc(418px + env(safe-area-inset-top));
       right: 12px;
       display: none;
       align-items: center;
@@ -469,23 +472,24 @@
     .floating-chip.visible { display: inline-flex; }
 
     .maplibregl-ctrl-top-right {
-      top: 12px;
+      top: 174px;
       right: 12px;
     }
     .grid-focus-corner {
       position: absolute;
       z-index: 16;
-      top: 12px;
-      right: 66px;
+      top: 66px;
+      right: 12px;
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
     .grid-focus-btn {
       width: 46px;
       height: 46px;
       min-width: 46px;
+      min-height: 46px;
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       background: rgba(10, 18, 32, 0.92);
       color: #e5edf9;
       box-shadow: var(--shadow);
@@ -494,6 +498,7 @@
       place-items: center;
       cursor: pointer;
       transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+      padding: 0;
     }
     .grid-focus-btn:hover {
       background: rgba(17, 31, 54, 0.96);
@@ -505,23 +510,27 @@
     }
     .grid-focus-btn:active { transform: scale(0.98); }
     .maplibregl-ctrl-group {
-      border: 1px solid var(--border) !important;
-      border-radius: 14px !important;
-      overflow: hidden;
-      background: rgba(10, 18, 32, 0.92) !important;
-      box-shadow: var(--shadow) !important;
-      backdrop-filter: blur(12px);
+      display: grid;
+      gap: 10px;
+      border: 0 !important;
+      border-radius: 0 !important;
+      overflow: visible;
+      background: transparent !important;
+      box-shadow: none !important;
+      backdrop-filter: none;
     }
     .maplibregl-ctrl-group button {
       width: 46px !important;
       height: 46px !important;
       min-width: 46px !important;
       min-height: 46px !important;
-      background: transparent !important;
-      border: 0 !important;
-    }
-    .maplibregl-ctrl-group button + button {
-      border-top: 1px solid var(--border) !important;
+      background: rgba(10, 18, 32, 0.92) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      box-shadow: var(--shadow) !important;
+      backdrop-filter: blur(12px);
+      margin: 0 !important;
+      padding: 0 !important;
     }
     .maplibregl-ctrl-group button span {
       filter: brightness(0) invert(1);
@@ -696,10 +705,11 @@
       border-radius: 24px;
     }
     body.mobile-ui .fab-stack {
-      right: 6px;
-      bottom: calc(148px + env(safe-area-inset-bottom));
+      right: 12px;
+      top: 250px;
+      bottom: auto;
     }
-    body.mobile-ui .fab { width: 48px; height: 48px; min-width: 48px; }
+    body.mobile-ui .fab { width: 46px; height: 46px; min-width: 46px; min-height: 46px; }
     body.mobile-ui .info-drawer {
       top: calc(8px + env(safe-area-inset-top));
       left: 8px;
@@ -708,8 +718,8 @@
       padding: 14px;
     }
     body.mobile-ui .grid-focus-corner {
-      top: calc(12px + env(safe-area-inset-top));
-      right: 66px;
+      top: calc(66px + env(safe-area-inset-top));
+      right: 12px;
     }
   </style>
 </head>
@@ -964,13 +974,14 @@
     let loaderPulseStart = 0;
     let bestCellsMode = false;
     let dataFetchController = null;
+    let centerChangeToken = 0;
     let geocodeController = null;
     let activeFetchToken = 0;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
     const GRID_ANIMATION_BATCH_SIZE = 1;
-    const GRID_ANIMATION_STEP_MS = 34;
-    const GRID_ANIMATION_CELL_MS = 210;
+    const GRID_ANIMATION_TOTAL_MS = 280;
+    const GRID_ANIMATION_CELL_MS = 110;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
     let userLocationMarker = null;
     const DEFAULT_CENTER = { lat: 45.7640, lon: 4.8357, label: 'Lyon' };
@@ -1155,7 +1166,7 @@
     }
 
     function durationForDistance(distanceKm) {
-      return Math.max(4200, Math.min(8800, 3800 + distanceKm * 5.2));
+      return Math.max(3500, Math.min(7300, (3800 + distanceKm * 5.2) / 1.2));
     }
 
     function animateCameraToCenter(center, zoomOverride = null) {
@@ -1264,6 +1275,7 @@
     }
 
     async function applyCenter(center, options = {}) {
+      const localToken = ++centerChangeToken;
       currentCenter = sanitizeCenter(center);
       saveCurrentCenter();
       cityInput.value = currentCenter.label;
@@ -1275,7 +1287,7 @@
       showLoadingGrid(currentCenter);
       if (options.showMarker) showCurrentMarker(currentCenter.lon, currentCenter.lat);
       closeTopPanels();
-      await loadData(options.force === true);
+      await loadData(options.force === true, localToken);
     }
 
     function renderDayButtons() {
@@ -1397,7 +1409,7 @@
       const enteringProgress = options.enteringProgress ?? 1;
       const features = cells.map(cell => cellToFeature(cell, bestZones));
       if (enteringCell) {
-        const latOffset = enteringCell.cell_height_deg * (1 - enteringProgress) * 1.8;
+        const latOffset = enteringCell.cell_height_deg * (1 - enteringProgress) * 1.1;
         features.push(cellToFeature(enteringCell, bestZones, { opacity: opacityFromConfidence(enteringCell.confidence_score) * enteringProgress, latOffset }));
       }
       return { type: 'FeatureCollection', features };
@@ -1411,18 +1423,21 @@
       });
     }
 
-    function animateRevealToSource(sourceId, cells, geojsonBuilder = buildGeoJSON, onStep = null) {
+    function animateRevealToSource(sourceId, cells, geojsonBuilder = buildGeoJSON, onStep = null, onComplete = null) {
       const token = ++gridAnimationToken;
       const orderedCells = sortCellsForReveal(cells);
       const source = map.getSource(sourceId);
       if (!source) return;
       source.setData(geojsonBuilder([]));
       let revealed = [];
+      const totalCells = Math.max(1, orderedCells.length);
+      const stepDelay = Math.max(4, Math.min(20, GRID_ANIMATION_TOTAL_MS / totalCells));
       const step = (index) => {
         if (token !== gridAnimationToken) return;
         if (index >= orderedCells.length) {
           source.setData(geojsonBuilder(revealed));
           if (typeof onStep === 'function') onStep();
+          if (typeof onComplete === 'function') onComplete();
           return;
         }
         const enteringCell = orderedCells[index];
@@ -1430,13 +1445,14 @@
         const frame = (now) => {
           if (token !== gridAnimationToken) return;
           const progress = Math.min(1, (now - start) / GRID_ANIMATION_CELL_MS);
-          source.setData(geojsonBuilder(revealed, { enteringCell, enteringProgress: progress }));
+          const eased = 1 - Math.pow(1 - progress, 3);
+          source.setData(geojsonBuilder(revealed, { enteringCell, enteringProgress: eased }));
           if (typeof onStep === 'function') onStep();
           if (progress < 1) {
             requestAnimationFrame(frame);
           } else {
             revealed = [...revealed, enteringCell];
-            window.setTimeout(() => step(index + GRID_ANIMATION_BATCH_SIZE), GRID_ANIMATION_STEP_MS);
+            window.setTimeout(() => step(index + 1), stepDelay);
           }
         };
         requestAnimationFrame(frame);
@@ -1445,7 +1461,16 @@
     }
 
     function animateGridReveal(cells) {
-      animateRevealToSource('grid', cells, buildGeoJSON, updateHighlight);
+      stopLoaderPulse();
+      animateRevealToSource('grid', cells, buildGeoJSON, updateHighlight, () => {
+        if (map.getLayer('grid-loader-fill')) {
+          const currentOpacity = map.getPaintProperty('grid-loader-fill', 'fill-opacity');
+          const from = typeof currentOpacity === 'number' ? currentOpacity : 0.06;
+          animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', from, 0, 180, removeLoaderLayers);
+        } else {
+          removeLoaderLayers();
+        }
+      });
     }
 
     function ensureSource(id, data) {
@@ -1474,13 +1499,10 @@
           'fill-opacity': 0,
         }
       });
-      animateRevealToSource('grid-loader', cells, buildGeoJSON, () => {
-        if (map.getLayer('grid-loader-fill')) startLoaderPulse();
-      });
-      animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0, 0.13, 220);
+      animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0, 0.09, 220, startLoaderPulse);
     }
 
-    function removeLayers() {
+    function removeLayers(keepLoader = false) {
       gridAnimationToken += 1;
       removeLoaderLayers();
       if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
@@ -1492,9 +1514,6 @@
     }
 
     function addLayers(data) {
-      if (map.getLayer('grid-loader-fill')) {
-        animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0.10, 0, 180);
-      }
       ensureSource('grid', data);
       map.addLayer({
         id: 'grid-fill',
@@ -1519,7 +1538,7 @@
       map.on('click', 'grid-fill', onGridClick);
       map.on('mouseenter', 'grid-fill', onGridEnter);
       map.on('mouseleave', 'grid-fill', onGridLeave);
-      animateGridFillFactor(0, 1, 220, updateHighlight);
+      animateGridFillFactor(0, 1, 180, updateHighlight);
     }
 
     function onGridEnter() {
@@ -1579,10 +1598,12 @@
       const cells = slot?.cells || [];
       refreshStats(cells, slot);
       if (!map.isStyleLoaded()) return;
-      removeLayers();
+      removeLayers(true);
       if (!cells.length) {
+        removeLoaderLayers();
         return;
       }
+      stopLoaderPulse();
       addLayers(buildGeoJSON(cells));
       animateGridReveal(cells);
     }
@@ -2029,7 +2050,7 @@
       updateInstallUI();
     }
 
-    async function loadData(force = false) {
+    async function loadData(force = false, centerToken = centerChangeToken) {
       const signature = `${currentCenter.lat}|${currentCenter.lon}|${currentCenter.label}`;
       if (!force && payload && signature === lastFetchSignature) return payload;
 
@@ -2044,7 +2065,7 @@
         const response = await fetch(`/api/latest?${params.toString()}`, { cache: 'no-store', signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const nextPayload = await response.json();
-        if (fetchToken != activeFetchToken) return payload;
+        if (fetchToken != activeFetchToken || centerToken !== centerChangeToken) return payload;
         payload = nextPayload;
         lastFetchSignature = signature;
         lastFetchAt = Date.now();
@@ -2099,7 +2120,7 @@
       setLoadingState(true, `Recherche de ${query}…`);
       try {
         const target = await geocodeCity(query, geocodeController.signal);
-        await applyCenter(target, { zoom: 8.6 });
+        await applyCenter(target, { zoom: 8.4 });
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.warn(error);

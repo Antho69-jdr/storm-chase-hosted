@@ -117,23 +117,26 @@ def frange(start: float, stop: float, step: float) -> Iterable[float]:
 
 
 def build_grid(center_lat: float = DEFAULT_CENTER_LAT, center_lon: float = DEFAULT_CENTER_LON, zone_prefix: str = DEFAULT_CENTER_LABEL) -> list[Point]:
-    half_lat_deg = km_to_deg_lat(HALF_BOX_KM_LAT)
-    half_lon_deg = km_to_deg_lon(HALF_BOX_KM_LON, center_lat)
     step_lat = km_to_deg_lat(CELL_SIZE_KM)
-    step_lon = km_to_deg_lon(CELL_SIZE_KM, center_lat)
-
-    min_lat = center_lat - half_lat_deg
-    max_lat = center_lat + half_lat_deg
-    min_lon = center_lon - half_lon_deg
-    max_lon = center_lon + half_lon_deg
-
     safe_prefix = "".join(ch for ch in zone_prefix if ch.isalnum())[:14] or "Zone"
+
+    row_count = math.ceil((HALF_BOX_KM_LAT * 2) / CELL_SIZE_KM) + 1
+    col_count = math.ceil((HALF_BOX_KM_LON * 2) / CELL_SIZE_KM) + 1
+    if row_count % 2 == 0:
+        row_count += 1
+    if col_count % 2 == 0:
+        col_count += 1
+
+    row_half = row_count // 2
+    col_half = col_count // 2
 
     points: list[Point] = []
     idx = 1
-    for lat in frange(min_lat, max_lat, step_lat):
+    for row in range(-row_half, row_half + 1):
+        lat = round(center_lat + row * step_lat, 5)
         width_deg = km_to_deg_lon(CELL_SIZE_KM, lat)
-        for lon in frange(min_lon, max_lon, step_lon):
+        for col in range(-col_half, col_half + 1):
+            lon = round(center_lon + col * width_deg, 5)
             points.append(
                 Point(
                     zone=f"{safe_prefix}-{idx}",
