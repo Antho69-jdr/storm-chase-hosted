@@ -470,126 +470,97 @@
       .statusbar { width: min(460px, calc(100vw - 20px)); }
     }
 
-    @media (max-width: 640px) {
-      .topbar {
-        top: max(8px, env(safe-area-inset-top));
-        width: calc(100vw - 12px);
-        left: 6px;
-        transform: none;
-        padding: 0;
-        background: transparent;
-        border: 0;
-        box-shadow: none;
-        backdrop-filter: none;
-      }
-      .mobile-toggle-bar {
-        display: flex;
-      }
-      .topbar .panel-card {
-        display: none;
-        margin-top: 8px;
-        padding: 8px;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        backdrop-filter: blur(12px);
-        box-shadow: var(--shadow);
-      }
-      .topbar.show-search .search-panel,
-      .topbar.show-calendar .calendar-panel {
-        display: grid;
-      }
-      .topbar.show-search #toggleSearchBtn,
-      .topbar.show-calendar #toggleCalendarBtn {
-        background: rgba(59,130,246,0.95);
-        border-color: rgba(255,255,255,0.28);
-      }
-      .location-bar {
-        grid-template-columns: minmax(0, 1fr) auto auto;
-      }
-      .button-row {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        justify-content: flex-start;
-        padding-bottom: 2px;
-        scrollbar-width: none;
-      }
-      .button-row::-webkit-scrollbar { display: none; }
-      button { flex: 0 0 auto; min-width: 88px; min-height: 46px; }
-      .icon-only-btn,
-      .mobile-toggle-btn { min-width: 46px; width: 46px; }
-      .statusbar {
-        left: 6px;
-        transform: none;
-        width: calc(100vw - 12px);
-        bottom: max(6px, env(safe-area-inset-bottom));
-      }
-      .meta-corner {
-        left: 6px;
-        width: auto;
-        max-width: calc(100vw - 72px);
-        bottom: calc(72px + env(safe-area-inset-bottom));
-      }
-      .selection-card {
-        left: 6px;
-        right: 6px;
-        transform: none;
-        width: auto;
-        bottom: calc(82px + env(safe-area-inset-bottom));
-        border-radius: 22px 22px 18px 18px;
-      }
-      .hero-score,
-      .quick-grid,
-      .details-grid {
-        grid-template-columns: 1fr;
-      }
-      .action-row {
-        flex-direction: column;
-      }
-      .details-modal,
-      .info-modal {
-        width: calc(100vw - 12px);
-        max-height: calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-        padding: 14px;
-        top: calc(6px + env(safe-area-inset-top));
-        left: 6px;
-        transform: none;
-        border-radius: 24px;
-      }
-      .fab-stack {
-        right: 6px;
-        bottom: calc(148px + env(safe-area-inset-bottom));
-      }
-      .fab { width: 48px; height: 48px; min-width: 48px; }
+    
+    body.mobile-ui .topbar {
+      top: max(8px, env(safe-area-inset-top));
+      width: calc(100vw - 12px);
+      left: 6px;
+      transform: none;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
     }
-
-    @media (min-width: 641px) and (max-width: 1024px) and (orientation: landscape) {
-      .topbar {
-        left: 12px;
-        transform: none;
-        width: min(560px, calc(100vw - 24px));
-      }
-      .selection-card {
-        left: auto;
-        right: 12px;
-        bottom: 16px;
-        transform: none;
-        width: min(420px, calc(50vw - 18px));
-      }
-      .statusbar {
-        left: 12px;
-        transform: none;
-        width: min(320px, calc(100vw - 24px));
-      }
-      .meta-corner {
-        left: 12px;
-        bottom: 92px;
-      }
-      .fab-stack {
-        right: 12px;
-        bottom: 16px;
-      }
+    body.mobile-ui .mobile-toggle-bar {
+      display: flex;
     }
+    body.mobile-ui .topbar .panel-card {
+      display: none;
+      margin-top: 8px;
+      padding: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+    }
+    body.mobile-ui .topbar.show-search .search-panel,
+    body.mobile-ui .topbar.show-calendar .calendar-panel {
+      display: grid;
+    }
+    body.mobile-ui .topbar.show-search #toggleSearchBtn,
+    body.mobile-ui .topbar.show-calendar #toggleCalendarBtn {
+      background: rgba(59,130,246,0.95);
+      border-color: rgba(255,255,255,0.28);
+    }
+    body.mobile-ui .location-bar {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+    body.mobile-ui .button-row {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      justify-content: flex-start;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    body.mobile-ui .button-row::-webkit-scrollbar { display: none; }
+    body.mobile-ui button { flex: 0 0 auto; min-width: 88px; min-height: 46px; }
+    body.mobile-ui .icon-only-btn,
+    body.mobile-ui .mobile-toggle-btn { min-width: 46px; width: 46px; }
+    body.mobile-ui .statusbar {
+      left: 6px;
+      transform: none;
+      width: calc(100vw - 12px);
+      bottom: max(6px, env(safe-area-inset-bottom));
+    }
+    body.mobile-ui .meta-corner {
+      left: 6px;
+      width: auto;
+      max-width: calc(100vw - 72px);
+      bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+    body.mobile-ui .selection-card {
+      left: 6px;
+      right: 6px;
+      transform: none;
+      width: auto;
+      bottom: calc(82px + env(safe-area-inset-bottom));
+      border-radius: 22px 22px 18px 18px;
+    }
+    body.mobile-ui .hero-score,
+    body.mobile-ui .quick-grid,
+    body.mobile-ui .details-grid {
+      grid-template-columns: 1fr;
+    }
+    body.mobile-ui .action-row {
+      flex-direction: column;
+    }
+    body.mobile-ui .details-modal,
+    body.mobile-ui .info-modal {
+      width: calc(100vw - 12px);
+      max-height: calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      padding: 14px;
+      top: calc(6px + env(safe-area-inset-top));
+      left: 6px;
+      transform: none;
+      border-radius: 24px;
+    }
+    body.mobile-ui .fab-stack {
+      right: 6px;
+      bottom: calc(148px + env(safe-area-inset-bottom));
+    }
+    body.mobile-ui .fab { width: 48px; height: 48px; min-width: 48px; }
   </style>
 </head>
 <body>
@@ -820,6 +791,9 @@
       maxZoom: 12.5,
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    applyResponsiveMode();
+    window.addEventListener('resize', applyResponsiveMode);
+    window.addEventListener('orientationchange', applyResponsiveMode);
 
     function colorFromScore(score) {
       const s = Math.max(0, Math.min(100, Number(score) || 0));
@@ -881,7 +855,15 @@
     }
 
     function isMobileLayout() {
-      return window.matchMedia('(max-width: 640px)').matches;
+      return document.body.classList.contains('mobile-ui');
+    }
+
+    function applyResponsiveMode() {
+      const coarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches || navigator.maxTouchPoints > 1;
+      const smallViewport = window.matchMedia('(max-width: 1024px)').matches;
+      const mobileLike = coarsePointer || smallViewport;
+      document.body.classList.toggle('mobile-ui', mobileLike);
+      if (!mobileLike) closeTopPanels();
     }
 
     function closeTopPanels() {
