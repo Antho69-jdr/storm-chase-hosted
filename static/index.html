@@ -456,6 +456,36 @@
       top: 12px;
       right: 12px;
     }
+    .grid-focus-corner {
+      position: absolute;
+      z-index: 16;
+      top: 12px;
+      right: 66px;
+    }
+    .grid-focus-btn {
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(10, 18, 32, 0.92);
+      color: #e5edf9;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      display: inline-grid;
+      place-items: center;
+      cursor: pointer;
+      transition: transform 120ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+    .grid-focus-btn:hover {
+      background: rgba(17, 31, 54, 0.96);
+    }
+    .grid-focus-btn.active {
+      background: rgba(37, 99, 235, 0.24);
+      border-color: rgba(96, 165, 250, 0.52);
+      color: #bfdbfe;
+    }
+    .grid-focus-btn:active { transform: scale(0.98); }
     .maplibregl-ctrl-group {
       border: 1px solid var(--border) !important;
       border-radius: 14px !important;
@@ -651,11 +681,23 @@
       bottom: calc(148px + env(safe-area-inset-bottom));
     }
     body.mobile-ui .fab { width: 48px; height: 48px; min-width: 48px; }
+    body.mobile-ui .grid-focus-corner {
+      top: calc(12px + env(safe-area-inset-top));
+      right: 66px;
+    }
   </style>
 </head>
 <body>
   <div id="app">
     <div id="map"></div>
+
+    <div class="grid-focus-corner">
+      <button id="bestCellsBtn" class="grid-focus-btn" type="button" aria-label="Mettre en valeur les meilleures cellules" title="Mettre en valeur les meilleures cellules">
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.5 14.6 8.8 20.5 9.7 16.2 13.8 17.2 19.6 12 16.9 6.8 19.6 7.8 13.8 3.5 9.7 9.4 8.8Z"></path>
+        </svg>
+      </button>
+    </div>
 
     <div class="overlay topbar" id="topbar">
       <div class="mobile-toggle-bar">
@@ -842,6 +884,7 @@
     const closeSelectionBtn = document.getElementById('closeSelectionBtn');
     const openDetailsBtn = document.getElementById('openDetailsBtn');
     const recenterBtn = document.getElementById('recenterBtn');
+    const bestCellsBtn = document.getElementById('bestCellsBtn');
 
     const modalBackdrop = document.getElementById('modalBackdrop');
     const detailsModal = document.getElementById('detailsModal');
@@ -866,6 +909,7 @@
     let gridAnimationToken = 0;
     let loaderPulseFrame = null;
     let loaderPulseStart = 0;
+    let bestCellsMode = false;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
     const GRID_ANIMATION_BATCH_SIZE = 2;
@@ -1215,27 +1259,49 @@
       return buildGeoJSON(buildLoaderCells(center));
     }
 
+    function computeBestZoneSet(cells) {
+      const ranked = [...cells].sort((a, b) => {
+        const scoreDiff = Number(b.score_global || 0) - Number(a.score_global || 0);
+        if (Math.abs(scoreDiff) > 0.001) return scoreDiff;
+        return Number(b.confidence_score || 0) - Number(a.confidence_score || 0);
+      });
+      if (!ranked.length) return new Set();
+      const topCount = Math.max(3, Math.min(10, Math.ceil(ranked.length * 0.12)));
+      const strong = ranked.filter(cell => Number(cell.score_global || 0) >= 70 || (Number(cell.score_global || 0) >= 62 && Number(cell.confidence_score || 0) >= 62));
+      const picked = strong.length ? strong.slice(0, Math.max(topCount, Math.min(12, strong.length))) : ranked.slice(0, topCount);
+      return new Set(picked.map(cell => cell.zone));
+    }
+
     function buildGeoJSON(cells) {
+      const bestZones = computeBestZoneSet(cells);
       return {
         type: 'FeatureCollection',
-        features: cells.map(cell => ({
-          type: 'Feature',
-          geometry: {
-            type: 'Polygon',
-            coordinates: [[
-              [cell.lon - cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
-              [cell.lon + cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
-              [cell.lon + cell.cell_width_deg / 2, cell.lat + cell.cell_height_deg / 2],
-              [cell.lon - cell.cell_width_deg / 2, cell.lat + cell.cell_height_deg / 2],
-              [cell.lon - cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
-            ]],
-          },
-          properties: {
-            ...cell,
-            fill_color: colorFromScore(cell.score_global),
-            fill_opacity: opacityFromConfidence(cell.confidence_score),
-          },
-        })),
+        features: cells.map(cell => {
+          const baseOpacity = opacityFromConfidence(cell.confidence_score);
+          const isBest = bestZones.has(cell.zone);
+          const fillOpacity = bestCellsMode && !cell.is_loader
+            ? (isBest ? Math.min(0.84, baseOpacity + 0.1) : Math.max(0.045, baseOpacity * 0.22))
+            : baseOpacity;
+          return {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[
+                [cell.lon - cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
+                [cell.lon + cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
+                [cell.lon + cell.cell_width_deg / 2, cell.lat + cell.cell_height_deg / 2],
+                [cell.lon - cell.cell_width_deg / 2, cell.lat + cell.cell_height_deg / 2],
+                [cell.lon - cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
+              ]],
+            },
+            properties: {
+              ...cell,
+              is_best: isBest ? 1 : 0,
+              fill_color: colorFromScore(cell.score_global),
+              fill_opacity: fillOpacity,
+            },
+          };
+        }),
       };
     }
 
@@ -1316,6 +1382,7 @@
       gridAnimationToken += 1;
       removeLoaderLayers();
       if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
+      if (map.getLayer('grid-best-outline')) map.removeLayer('grid-best-outline');
       if (map.getLayer('grid-outline')) map.removeLayer('grid-outline');
       if (map.getLayer('grid-fill')) map.removeLayer('grid-fill');
       if (map.getSource('grid')) map.removeSource('grid');
@@ -1342,8 +1409,20 @@
         source: 'grid',
         paint: {
           'line-color': ['case', ['>=', ['get', 'chase_quality_score'], 70], '#dbeafe', ['>=', ['get', 'chase_quality_score'], 50], '#fde68a', '#fca5a5'],
-          'line-width': ['case', ['>=', ['get', 'score_global'], 70], 1.6, ['>=', ['get', 'score_global'], 45], 1.2, 0.8],
-          'line-opacity': 0.62,
+          'line-width': ['case', ['==', ['get', 'is_best'], 1], 2.2, ['>=', ['get', 'score_global'], 70], 1.6, ['>=', ['get', 'score_global'], 45], 1.2, 0.8],
+          'line-opacity': ['case', ['==', ['get', 'is_best'], 1], 0.95, 0.5],
+        }
+      });
+      map.addLayer({
+        id: 'grid-best-outline',
+        type: 'line',
+        source: 'grid',
+        filter: ['==', ['get', 'is_best'], 1],
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 2.8,
+          'line-opacity': bestCellsMode ? 0.68 : 0,
+          'line-blur': 0.25,
         }
       });
       map.addLayer({
@@ -1381,6 +1460,31 @@
     function updateHighlight() {
       if (!map.getLayer('grid-highlight')) return;
       map.setPaintProperty('grid-highlight', 'line-opacity', ['case', ['==', ['get', 'zone'], selectedFeature?.zone || ''], 1, 0]);
+    }
+
+    function updateBestCellsButton() {
+      if (!bestCellsBtn) return;
+      bestCellsBtn.classList.toggle('active', bestCellsMode);
+    }
+
+    function applyBestCellsModeToCurrentMap() {
+      const slot = getCurrentSlot();
+      const cells = slot?.cells || [];
+      if (!map.isStyleLoaded() || !map.getSource('grid') || !cells.length) {
+        updateBestCellsButton();
+        return;
+      }
+      map.getSource('grid').setData(buildGeoJSON(cells));
+      if (map.getLayer('grid-best-outline')) {
+        map.setPaintProperty('grid-best-outline', 'line-opacity', bestCellsMode ? 0.68 : 0);
+      }
+      updateHighlight();
+      updateBestCellsButton();
+    }
+
+    function toggleBestCellsMode() {
+      bestCellsMode = !bestCellsMode;
+      applyBestCellsModeToCurrentMap();
     }
 
     function mean(values) {
@@ -1933,6 +2037,7 @@
     infoBackdrop.addEventListener('click', closeMetricInfo);
     locateBtn.addEventListener('click', locateUser);
     refreshBtn.addEventListener('click', () => refreshCurrentData(true));
+    bestCellsBtn.addEventListener('click', toggleBestCellsMode);
     aroundMeBtn.addEventListener('click', locateUser);
     searchCityBtn.addEventListener('click', handleCitySearch);
     cityInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') handleCitySearch(); });
@@ -1940,6 +2045,7 @@
     installChip.addEventListener('click', installApp);
     window.addEventListener('resize', () => { if (!isMobileLayout()) closeTopPanels(); });
     document.addEventListener('visibilitychange', maybeRefreshOnReturn);
+    updateBestCellsButton();
 
     document.querySelectorAll('[data-metric]').forEach(btn => {
       btn.addEventListener('click', () => {
