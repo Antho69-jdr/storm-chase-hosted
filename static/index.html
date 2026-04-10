@@ -774,6 +774,8 @@
     let lastFetchSignature = '';
     let lastFetchAt = 0;
     let gridAnimationToken = 0;
+    const LOADER_GRID_SIZE = 7;
+    const LOADER_CELL_SIZE_KM = 6.5;
     const GRID_ANIMATION_BATCH_SIZE = 10;
     const GRID_ANIMATION_STEP_MS = 28;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
@@ -933,10 +935,11 @@
       selectedFeature = null;
       closeSelection();
       closeDetails();
-      await loadData(options.force === true);
-      map.easeTo({ center: [currentCenter.lon, currentCenter.lat], zoom: Number.isFinite(options.zoom) ? options.zoom : Math.min(map.getZoom(), 8.8), duration: 1350, easing: t => 1 - Math.pow(1 - t, 3) });
+      map.easeTo({ center: [currentCenter.lon, currentCenter.lat], zoom: Number.isFinite(options.zoom) ? options.zoom : Math.min(map.getZoom(), 8.3), duration: 1100, easing: t => 1 - Math.pow(1 - t, 3) });
+      showLoadingGrid(currentCenter);
       if (options.showMarker) showCurrentMarker(currentCenter.lon, currentCenter.lat);
       closeTopPanels();
+      await loadData(options.force === true);
     }
 
     function renderDayButtons() {
@@ -985,6 +988,42 @@
       }
     }
 
+    function kmToDegLat(km) {
+      return km / 111;
+    }
+
+    function kmToDegLon(km, lat) {
+      return km / (111 * Math.cos((lat * Math.PI) / 180));
+    }
+
+    function buildLoaderCells(center) {
+      const cells = [];
+      const latStep = kmToDegLat(LOADER_CELL_SIZE_KM);
+      const lonStep = kmToDegLon(LOADER_CELL_SIZE_KM, center.lat);
+      const half = Math.floor(LOADER_GRID_SIZE / 2);
+      let idx = 0;
+      for (let row = -half; row <= half; row += 1) {
+        for (let col = -half; col <= half; col += 1) {
+          cells.push({
+            zone: `loader-${idx++}`,
+            lat: center.lat + row * latStep,
+            lon: center.lon + col * lonStep,
+            cell_height_deg: latStep,
+            cell_width_deg: lonStep,
+            score_global: 18 + ((row + half + col + half) % 5) * 5,
+            confidence_score: 42,
+            chase_quality_score: 55,
+            is_loader: true,
+          });
+        }
+      }
+      return cells;
+    }
+
+    function buildLoaderGeoJSON(center) {
+      return buildGeoJSON(buildLoaderCells(center));
+    }
+
     function buildGeoJSON(cells) {
       return {
         type: 'FeatureCollection',
@@ -1017,19 +1056,19 @@
       });
     }
 
-    function animateGridReveal(cells) {
+    function animateRevealToSource(sourceId, cells, geojsonBuilder = buildGeoJSON, onStep = null) {
       const token = ++gridAnimationToken;
       const orderedCells = sortCellsForReveal(cells);
-      const source = map.getSource('grid');
+      const source = map.getSource(sourceId);
       if (!source) return;
 
-      source.setData(buildGeoJSON([]));
+      source.setData(geojsonBuilder([]));
 
       const step = (count) => {
         if (token !== gridAnimationToken) return;
         const nextCount = Math.min(count + GRID_ANIMATION_BATCH_SIZE, orderedCells.length);
-        source.setData(buildGeoJSON(orderedCells.slice(0, nextCount)));
-        updateHighlight();
+        source.setData(geojsonBuilder(orderedCells.slice(0, nextCount)));
+        if (typeof onStep === 'function') onStep();
         if (nextCount < orderedCells.length) {
           window.setTimeout(() => step(nextCount), GRID_ANIMATION_STEP_MS);
         }
@@ -1038,13 +1077,52 @@
       step(0);
     }
 
+    function animateGridReveal(cells) {
+      animateRevealToSource('grid', cells, buildGeoJSON, updateHighlight);
+    }
+
     function ensureSource(id, data) {
       if (map.getSource(id)) map.getSource(id).setData(data);
       else map.addSource(id, { type: 'geojson', data });
     }
 
+    function removeLoaderLayers() {
+      gridAnimationToken += 1;
+      if (map.getLayer('grid-loader-outline')) map.removeLayer('grid-loader-outline');
+      if (map.getLayer('grid-loader-fill')) map.removeLayer('grid-loader-fill');
+      if (map.getSource('grid-loader')) map.removeSource('grid-loader');
+    }
+
+    function showLoadingGrid(center) {
+      if (!map.isStyleLoaded()) return;
+      removeLoaderLayers();
+      const cells = buildLoaderCells(center);
+      ensureSource('grid-loader', buildGeoJSON(cells));
+      map.addLayer({
+        id: 'grid-loader-fill',
+        type: 'fill',
+        source: 'grid-loader',
+        paint: {
+          'fill-color': '#60a5fa',
+          'fill-opacity': 0.12,
+        }
+      });
+      map.addLayer({
+        id: 'grid-loader-outline',
+        type: 'line',
+        source: 'grid-loader',
+        paint: {
+          'line-color': 'rgba(191,219,254,0.85)',
+          'line-width': 1,
+          'line-opacity': 0.45,
+        }
+      });
+      animateRevealToSource('grid-loader', cells, buildGeoJSON);
+    }
+
     function removeLayers() {
       gridAnimationToken += 1;
+      removeLoaderLayers();
       if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
       if (map.getLayer('grid-outline')) map.removeLayer('grid-outline');
       if (map.getLayer('grid-fill')) map.removeLayer('grid-fill');
@@ -1055,6 +1133,7 @@
     }
 
     function addLayers(data) {
+      removeLoaderLayers();
       ensureSource('grid', data);
       map.addLayer({
         id: 'grid-fill',
