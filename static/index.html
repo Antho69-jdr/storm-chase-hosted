@@ -74,6 +74,34 @@
     .location-input::placeholder { color: #93a4c1; }
     .location-input:focus { border-color: rgba(59,130,246,0.6); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
 
+    .panel-card {
+      display: grid;
+      gap: 8px;
+    }
+
+    .mobile-toggle-bar {
+      display: none;
+      gap: 8px;
+      justify-content: flex-start;
+    }
+
+    .mobile-toggle-btn,
+    .icon-only-btn {
+      min-width: 46px;
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .mobile-toggle-btn {
+      border-radius: 14px;
+      background: rgba(10, 18, 32, 0.92);
+    }
+
     .ghost-btn { background: rgba(255,255,255,0.06); }
 
     .button-row {
@@ -440,10 +468,36 @@
         width: calc(100vw - 12px);
         left: 6px;
         transform: none;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        backdrop-filter: none;
+      }
+      .mobile-toggle-bar {
+        display: flex;
+      }
+      .topbar .panel-card {
+        display: none;
+        margin-top: 8px;
         padding: 8px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow);
+      }
+      .topbar.show-search .search-panel,
+      .topbar.show-calendar .calendar-panel {
+        display: grid;
+      }
+      .topbar.show-search #toggleSearchBtn,
+      .topbar.show-calendar #toggleCalendarBtn {
+        background: rgba(59,130,246,0.95);
+        border-color: rgba(255,255,255,0.28);
       }
       .location-bar {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr) auto auto;
       }
       .button-row {
         flex-wrap: nowrap;
@@ -454,6 +508,8 @@
       }
       .button-row::-webkit-scrollbar { display: none; }
       button { flex: 0 0 auto; min-width: 88px; min-height: 46px; }
+      .icon-only-btn,
+      .mobile-toggle-btn { min-width: 46px; width: 46px; }
       .statusbar {
         left: 6px;
         transform: none;
@@ -532,14 +588,24 @@
   <div id="app">
     <div id="map"></div>
 
-    <div class="overlay topbar">
-      <div class="location-bar">
-        <input id="cityInput" class="location-input" type="text" placeholder="Nom de ville…" autocomplete="off" spellcheck="false" />
-        <button id="searchCityBtn">Rechercher</button>
-        <button id="aroundMeBtn" class="ghost-btn">Autour de moi</button>
+    <div class="overlay topbar" id="topbar">
+      <div class="mobile-toggle-bar">
+        <button id="toggleCalendarBtn" class="mobile-toggle-btn" type="button" aria-label="Afficher les jours et horaires" title="Jours et horaires">📅</button>
+        <button id="toggleSearchBtn" class="mobile-toggle-btn" type="button" aria-label="Afficher la recherche de zone" title="Zone et recherche">📍</button>
       </div>
-      <div id="dayButtons" class="button-row"></div>
-      <div id="slotButtons" class="button-row"></div>
+
+      <div class="panel-card search-panel">
+        <div class="location-bar">
+          <input id="cityInput" class="location-input" type="text" placeholder="Nom de ville…" autocomplete="off" spellcheck="false" />
+          <button id="searchCityBtn" class="icon-only-btn" aria-label="Rechercher une ville" title="Rechercher">⌕</button>
+          <button id="aroundMeBtn" class="ghost-btn icon-only-btn" aria-label="Autour de moi" title="Autour de moi">◎</button>
+        </div>
+      </div>
+
+      <div class="panel-card calendar-panel">
+        <div id="dayButtons" class="button-row"></div>
+        <div id="slotButtons" class="button-row"></div>
+      </div>
     </div>
 
     <div class="floating-chip" id="installChip">App installable</div>
@@ -644,6 +710,9 @@
     const metaLine = document.getElementById('metaLine');
     const dayButtons = document.getElementById('dayButtons');
     const slotButtons = document.getElementById('slotButtons');
+    const topbar = document.getElementById('topbar');
+    const toggleCalendarBtn = document.getElementById('toggleCalendarBtn');
+    const toggleSearchBtn = document.getElementById('toggleSearchBtn');
     const cityInput = document.getElementById('cityInput');
     const searchCityBtn = document.getElementById('searchCityBtn');
     const aroundMeBtn = document.getElementById('aroundMeBtn');
@@ -756,6 +825,23 @@
       } catch (_) {}
     }
 
+    function isMobileLayout() {
+      return window.matchMedia('(max-width: 640px)').matches;
+    }
+
+    function closeTopPanels() {
+      topbar.classList.remove('show-search', 'show-calendar');
+    }
+
+    function toggleTopPanel(panel) {
+      if (!isMobileLayout()) return;
+      const searchOpen = topbar.classList.contains('show-search');
+      const calendarOpen = topbar.classList.contains('show-calendar');
+      closeTopPanels();
+      if (panel === 'search' && !searchOpen) topbar.classList.add('show-search');
+      if (panel === 'calendar' && !calendarOpen) topbar.classList.add('show-calendar');
+    }
+
     function updateMetaLine() {
       const centerLabel = payload?.meta?.center?.label || currentCenter.label || 'Zone';
       const generated = payload?.meta?.generated_at || '—';
@@ -809,6 +895,7 @@
       await loadData(options.force === true);
       map.easeTo({ center: [currentCenter.lon, currentCenter.lat], zoom: Math.max(options.zoom || map.getZoom(), 9.4), duration: 700 });
       if (options.showMarker) showCurrentMarker(currentCenter.lon, currentCenter.lat);
+      closeTopPanels();
     }
 
     function renderDayButtons() {
@@ -829,6 +916,8 @@
           renderDayButtons();
           renderSlotButtons();
           refreshMap();
+          closeTopPanels();
+          closeTopPanels();
         };
         dayButtons.appendChild(btn);
       }
@@ -1396,6 +1485,8 @@
       }
     }
 
+    toggleCalendarBtn.addEventListener('click', () => toggleTopPanel('calendar'));
+    toggleSearchBtn.addEventListener('click', () => toggleTopPanel('search'));
     closeSelectionBtn.addEventListener('click', closeSelection);
     openDetailsBtn.addEventListener('click', openDetails);
     recenterBtn.addEventListener('click', () => {
@@ -1412,6 +1503,7 @@
     cityInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') handleCitySearch(); });
     installBtn.addEventListener('click', installApp);
     installChip.addEventListener('click', installApp);
+    window.addEventListener('resize', () => { if (!isMobileLayout()) closeTopPanels(); });
 
     document.querySelectorAll('[data-metric]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1424,12 +1516,14 @@
     map.on('click', (e) => {
       const features = map.queryRenderedFeatures(e.point, { layers: ['grid-fill'] });
       if (!features.length && !detailsModal.classList.contains('visible')) closeSelection();
+      if (!features.length) closeTopPanels();
     });
 
     registerPWA();
 
     map.on('load', async () => {
       cityInput.value = currentCenter.label;
+      if (isMobileLayout()) topbar.classList.add('show-calendar');
       await loadData().catch(err => {
         console.warn(err);
         metaLine.textContent = `Impossible de charger la zone initiale.`;
