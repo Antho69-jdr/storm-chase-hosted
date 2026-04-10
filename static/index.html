@@ -31,7 +31,7 @@
       --rail-btn: 46px;
       --rail-top-topbar: 12px;
       --rail-top-focus: 128px;
-      --rail-top-fab: 244px;
+      --rail-top-fab: 302px;
       --rail-top-map: 360px;
       --rail-btn-size: 46px;
       --right-rail-width: 46px;
@@ -222,7 +222,7 @@
       position: absolute;
       z-index: 11;
       left: 12px;
-      bottom: 12px;
+      bottom: 22px;
       display: grid;
       gap: 6px;
       max-width: min(320px, calc(100vw - 24px));
@@ -725,6 +725,10 @@
       body.mobile-ui .meta-stack {
         max-width: calc(100vw - 104px);
       }
+    }
+
+    body.mobile-ui .meta-stack {
+      bottom: max(12px, env(safe-area-inset-bottom));
     }
 
     @media (max-width: 900px) {
