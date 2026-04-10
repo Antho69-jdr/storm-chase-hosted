@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,7 @@ STATIC_DIR = BASE_DIR / "static"
 CACHE_TTL_SECONDS = 15 * 60
 STALE_TTL_SECONDS = 2 * 60 * 60
 
-app = FastAPI(title="Storm Chase", version="1.2.0")
+app = FastAPI(title="Storm Chase", version="1.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,7 +34,6 @@ _lock = asyncio.Lock()
 
 
 def _cache_key(lat: float, lon: float) -> str:
-    # Rounded key to deduplicate "same practical zone" requests
     return f"{lat:.2f}:{lon:.2f}"
 
 
@@ -63,6 +63,34 @@ def _stale_payload(entry: dict[str, Any], label: str, warning: str) -> dict[str,
     return stale
 
 
+def _distance_km(a_lat: float, a_lon: float, b_lat: float, b_lon: float) -> float:
+    dx = (a_lon - b_lon) * 111.0 * math.cos(math.radians((a_lat + b_lat) / 2))
+    dy = (a_lat - b_lat) * 111.0
+    return math.hypot(dx, dy)
+
+
+def _nearest_recent_cache(lat: float, lon: float, ttl: int = STALE_TTL_SECONDS, max_distance_km: float = 80.0):
+    now = time.time()
+    best = None
+    best_dist = None
+    for key, entry in _cache.items():
+        if (now - float(entry["ts"])) >= ttl:
+            continue
+        try:
+            e_lat_s, e_lon_s = key.split(":")
+            e_lat = float(e_lat_s)
+            e_lon = float(e_lon_s)
+        except Exception:
+            continue
+        dist = _distance_km(lat, lon, e_lat, e_lon)
+        if dist > max_distance_km:
+            continue
+        if best is None or dist < best_dist:
+            best = entry
+            best_dist = dist
+    return best, best_dist
+
+
 async def _build_payload(lat: float, lon: float, label: str) -> dict[str, Any]:
     payload = await asyncio.to_thread(build_latest_payload, lat, lon, label)
     return _merge_label(payload, label)
@@ -73,6 +101,17 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/sw.js")
+def service_worker() -> FileResponse:
+    return FileResponse(STATIC_DIR / "sw.js", media_type="application/javascript")
+
+
+@app.get("/favicon.ico")
+def favicon() -> FileResponse:
+    icon = STATIC_DIR / "icons" / "icon-192.png"
+    return FileResponse(icon, media_type="image/png")
+
+
 @app.get("/api/latest")
 async def latest(
     lat: float = Query(45.7640, ge=-90, le=90),
@@ -81,8 +120,6 @@ async def latest(
     force: bool = False,
 ) -> dict:
     key = _cache_key(lat, lon)
-
-    # Fresh cache hit first, outside lock
     cached = _cache.get(key)
     if not force and _cache_fresh(cached):
         return _merge_label(cached["payload"], label)
@@ -111,6 +148,15 @@ async def latest(
                 label=label,
                 warning=f"Données mises en cache utilisées après erreur de rafraîchissement: {exc}",
             )
+
+        nearby, dist = _nearest_recent_cache(lat, lon)
+        if nearby is not None:
+            return _stale_payload(
+                nearby,
+                label=label,
+                warning=f"Données de secours d'une zone voisine (~{round(dist)} km) utilisées après erreur de rafraîchissement: {exc}",
+            )
+
         raise HTTPException(status_code=502, detail=f"Weather refresh failed: {exc}")
     else:
         async with _lock:

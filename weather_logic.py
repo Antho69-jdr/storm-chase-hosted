@@ -21,10 +21,10 @@ TIMEZONE = "auto"
 DEFAULT_CENTER_LAT = 45.7640
 DEFAULT_CENTER_LON = 4.8357
 DEFAULT_CENTER_LABEL = "Lyon"
-HALF_BOX_KM_LAT = 25.0
-HALF_BOX_KM_LON = 25.0
-CELL_SIZE_KM = 6.5
-BATCH_SIZE = 16
+HALF_BOX_KM_LAT = 24.0
+HALF_BOX_KM_LON = 24.0
+CELL_SIZE_KM = 7.5
+BATCH_SIZE = 20
 MODEL = "arome_france"
 FORECAST_HOURS = 96
 
@@ -120,8 +120,8 @@ def build_grid(center_lat: float = DEFAULT_CENTER_LAT, center_lon: float = DEFAU
     step_lat = km_to_deg_lat(CELL_SIZE_KM)
     safe_prefix = "".join(ch for ch in zone_prefix if ch.isalnum())[:14] or "Zone"
 
-    row_count = math.ceil((HALF_BOX_KM_LAT * 2) / CELL_SIZE_KM) + 3
-    col_count = math.ceil((HALF_BOX_KM_LON * 2) / CELL_SIZE_KM) + 3
+    row_count = math.ceil((HALF_BOX_KM_LAT * 2) / CELL_SIZE_KM) + 1
+    col_count = math.ceil((HALF_BOX_KM_LON * 2) / CELL_SIZE_KM) + 1
     if row_count % 2 == 0:
         row_count += 1
     if col_count % 2 == 0:
@@ -192,7 +192,7 @@ def build_api_url(points: list[Point]) -> str:
         "longitude": longitudes,
         "hourly": ",".join(HOURLY_VARS),
         "models": MODEL,
-        "forecast_hours": str(FORECAST_HOURS),
+        "forecast_hours": str(72),
         "timezone": TIMEZONE,
         "wind_speed_unit": "ms",
         "format": "json",
@@ -551,7 +551,7 @@ def fetch_model(points: list[Point]) -> list[OutputRow]:
     total_batches = len(batches)
     rows: list[OutputRow] = []
     for batch_index, batch in enumerate(batches, start=1):
-        print(f"{MODEL} | lot {batch_index}/{total_batches} | {len(batch)} points | jours glissants")
+        print(f"{MODEL} | lot {batch_index}/{total_batches} | {len(batch)} points | jours glissants (V19 allégée)")
         url = build_api_url(batch)
         payload = get_json(url)
         structures = location_structures(payload)
