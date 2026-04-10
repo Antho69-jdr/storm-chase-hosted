@@ -166,6 +166,7 @@
     #toggleSearchBtn,
     #bestCellsBtn,
     #infoDrawerBtn,
+    #gridLinesBtn,
     #locateBtn,
     #refreshBtn {
       width: var(--rail-btn-size) !important;
@@ -546,9 +547,36 @@
     }
     .floating-chip.visible { display: inline-flex; }
 
+    .cell-scale-chip {
+      position: absolute;
+      z-index: 16;
+      right: calc(var(--rail-right) + var(--rail-btn-size) + 14px);
+      bottom: max(16px, env(safe-area-inset-bottom));
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(9, 18, 31, 0.56);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      color: var(--muted);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      white-space: nowrap;
+    }
+
     .maplibregl-ctrl-top-right {
       top: var(--rail-top-map);
-      right: var(--rail-right);
+      right: var(--rail-right) !important;
+      display: grid;
+      justify-items: stretch;
+    }
+    .maplibregl-ctrl-top-right .maplibregl-ctrl {
+      margin: 0 !important;
+      float: none !important;
+      width: var(--right-rail-width);
     }
     .grid-focus-corner {
       position: absolute;
@@ -855,6 +883,14 @@
           <path d="M12 7.5h.01"></path>
         </svg>
       </button>
+      <button id="gridLinesBtn" class="grid-focus-btn active" type="button" aria-label="Afficher ou masquer les lignes de grille" title="Lignes de grille">
+        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 8h16"></path>
+          <path d="M4 16h16"></path>
+          <path d="M8 4v16"></path>
+          <path d="M16 4v16"></path>
+        </svg>
+      </button>
     </div>
 
     <div class="overlay topbar" id="topbar">
@@ -923,8 +959,10 @@
           <path d="M21 3v6h-6"></path>
         </svg>
       </button>
-      <button class="fab small-label" id="installBtn" aria-label="Installer l’application" style="display:none;">Installer</button>
+      
     </div>
+
+    <div class="cell-scale-chip" id="cellScaleChip">1 cellule ≈ 7,5 km</div>
 
     <div class="selection-card" id="selectionCard" aria-live="polite">
       <div class="drag-handle" aria-hidden="true"></div>
@@ -1074,6 +1112,7 @@
     const infoDrawer = document.getElementById('infoDrawer');
     const drawerBackdrop = document.getElementById('drawerBackdrop');
     const infoDrawerBtn = document.getElementById('infoDrawerBtn');
+    const gridLinesBtn = document.getElementById('gridLinesBtn');
     const closeDrawerBtn = document.getElementById('closeDrawerBtn');
     const locateBtn = document.getElementById('locateBtn');
     const refreshBtn = document.getElementById('refreshBtn');
@@ -1089,6 +1128,7 @@
     let loaderPulseFrame = null;
     let loaderPulseStart = 0;
     let bestCellsMode = false;
+    let showGridLines = true;
     let dataFetchController = null;
     let centerChangeToken = 0;
     let geocodeController = null;
@@ -1399,6 +1439,10 @@
       if (map.getLayer('grid-highlight')) {
         animateLayerPaintNumber('grid-highlight', 'line-opacity', 1, 0, 160);
       }
+      if (map.getLayer('grid-borders')) {
+        const currentOpacity = showGridLines ? 0.5 : 0;
+        animateLayerPaintNumber('grid-borders', 'line-opacity', currentOpacity, 0, 160);
+      }
     }
 
     async function geocodeCity(query, signal) {
@@ -1679,6 +1723,7 @@
       gridAnimationToken += 1;
       removeLoaderLayers();
       if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
+      if (map.getLayer('grid-borders')) map.removeLayer('grid-borders');
       if (map.getLayer('grid-fill')) map.removeLayer('grid-fill');
       if (map.getSource('grid')) map.removeSource('grid');
       map.off('click', 'grid-fill', onGridClick);
@@ -1695,6 +1740,17 @@
         paint: {
           'fill-color': ['get', 'fill_color'],
           'fill-opacity': ['*', ['get', 'fill_opacity'], 0],
+          'fill-antialias': false
+        }
+      });
+      map.addLayer({
+        id: 'grid-borders',
+        type: 'line',
+        source: 'grid',
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 1,
+          'line-opacity': showGridLines ? 0.5 : 0,
         }
       });
       map.addLayer({
@@ -1711,7 +1767,7 @@
       map.on('click', 'grid-fill', onGridClick);
       map.on('mouseenter', 'grid-fill', onGridEnter);
       map.on('mouseleave', 'grid-fill', onGridLeave);
-      animateGridFillFactor(0, 1, 180, updateHighlight);
+      animateGridFillFactor(0, 1, 180, () => { applyGridLinesVisibility(); updateHighlight(); });
     }
 
     function onGridEnter() {
@@ -1735,6 +1791,23 @@
       map.setPaintProperty('grid-highlight', 'line-opacity', ['case', ['==', ['get', 'zone'], selectedFeature?.zone || ''], 1, 0]);
     }
 
+    function updateGridLinesButton() {
+      if (!gridLinesBtn) return;
+      gridLinesBtn.classList.toggle('active', showGridLines);
+    }
+
+    function applyGridLinesVisibility() {
+      if (map.getLayer('grid-borders')) {
+        map.setPaintProperty('grid-borders', 'line-opacity', showGridLines ? 0.5 : 0);
+      }
+      updateGridLinesButton();
+    }
+
+    function toggleGridLines() {
+      showGridLines = !showGridLines;
+      applyGridLinesVisibility();
+    }
+
     function updateBestCellsButton() {
       if (!bestCellsBtn) return;
       bestCellsBtn.classList.toggle('active', bestCellsMode);
@@ -1745,9 +1818,11 @@
       const cells = slot?.cells || [];
       if (!map.isStyleLoaded() || !map.getSource('grid') || !cells.length) {
         updateBestCellsButton();
+    updateGridLinesButton();
         return;
       }
       map.getSource('grid').setData(buildGeoJSON(cells));
+      applyGridLinesVisibility();
       updateHighlight();
       updateBestCellsButton();
     }
@@ -2182,8 +2257,8 @@
 
     function updateInstallUI() {
       const installable = !!deferredInstallPrompt;
-      installBtn.style.display = installable ? 'inline-grid' : 'none';
-      installChip.classList.toggle('visible', installable);
+      const prefersTouchInstall = window.matchMedia('(pointer: coarse)').matches;
+      installChip.classList.toggle('visible', installable && prefersTouchInstall);
     }
 
     async function installApp() {
@@ -2355,10 +2430,10 @@
     locateBtn.addEventListener('click', locateUser);
     refreshBtn.addEventListener('click', () => refreshCurrentData(true));
     bestCellsBtn.addEventListener('click', toggleBestCellsMode);
+    gridLinesBtn.addEventListener('click', toggleGridLines);
     aroundMeBtn.addEventListener('click', locateUser);
     searchCityBtn.addEventListener('click', handleCitySearch);
     cityInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') handleCitySearch(); });
-    installBtn.addEventListener('click', installApp);
     installChip.addEventListener('click', installApp);
     window.addEventListener('resize', () => { if (!isMobileLayout()) closeTopPanels(); requestAnimationFrame(alignTopPanels); });
     document.addEventListener('visibilitychange', maybeRefreshOnReturn);
