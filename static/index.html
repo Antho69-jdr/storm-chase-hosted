@@ -45,7 +45,7 @@
       top: 10px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(920px, calc(100vw - 20px));
+      width: min(760px, calc(100vw - 24px));
       border-radius: 18px;
       padding: 10px 12px;
       display: grid;
@@ -142,7 +142,7 @@
       bottom: 16px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(460px, calc(100vw - 20px));
+      width: min(420px, calc(100vw - 24px));
       border-radius: 18px;
       padding: 12px 14px;
       display: grid;
@@ -231,7 +231,7 @@
       left: 50%;
       bottom: 130px;
       transform: translateX(-50%);
-      width: min(440px, calc(100vw - 20px));
+      width: min(420px, calc(100vw - 24px));
       border-radius: 20px;
       padding: 16px;
       background: var(--panel-2);
@@ -329,7 +329,7 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: min(560px, calc(100vw - 20px));
+      width: min(500px, calc(100vw - 24px));
       max-height: min(78vh, 760px);
       overflow: auto;
       background: var(--panel-2);
@@ -373,8 +373,8 @@
       min-height: 0;
     }
     .metric-btn .label { font-size: 11px; color: var(--muted); display: block; }
-    .metric-btn .value { margin-top: 6px; font-size: 18px; font-weight: 800; display: block; }
-    .metric-btn .hint { margin-top: 4px; font-size: 12px; color: var(--muted); display: block; }
+    .metric-btn .value { margin-top: 6px; font-size: 16px; font-weight: 800; display: block; }
+    .metric-btn .hint { margin-top: 4px; font-size: 11px; color: var(--muted); display: block; }
     .metric-btn:hover, .metric-btn:focus-visible { background: rgba(59,130,246,0.10); border-color: rgba(59,130,246,0.45); }
 
     .info-modal {
@@ -383,7 +383,7 @@
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: min(480px, calc(100vw - 20px));
+      width: min(440px, calc(100vw - 24px));
       background: var(--panel-2);
       border: 1px solid var(--border);
       border-radius: 22px;
@@ -516,15 +516,15 @@
     }
 
     @media (max-width: 900px) {
-      .statusbar { width: min(460px, calc(100vw - 20px)); }
+      .statusbar { width: min(420px, calc(100vw - 24px)); }
     }
 
     
     body.mobile-ui .topbar {
       top: max(8px, env(safe-area-inset-top));
-      width: calc(100vw - 12px);
-      left: 6px;
-      transform: none;
+      width: min(420px, calc(100vw - 20px));
+      left: 50%;
+      transform: translateX(-50%);
       padding: 0;
       background: transparent;
       border: 0;
@@ -568,10 +568,10 @@
     body.mobile-ui .icon-only-btn,
     body.mobile-ui .mobile-toggle-btn { min-width: 46px; width: 46px; }
     body.mobile-ui .statusbar {
-      left: 6px;
-      transform: none;
-      width: calc(100vw - 12px);
-      bottom: max(6px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(420px, calc(100vw - 20px));
+      bottom: max(8px, env(safe-area-inset-bottom));
     }
     body.mobile-ui .meta-corner {
       left: 6px;
@@ -580,31 +580,54 @@
       bottom: calc(72px + env(safe-area-inset-bottom));
     }
     body.mobile-ui .selection-card {
-      left: 6px;
-      right: 6px;
-      transform: none;
-      width: auto;
-      bottom: calc(82px + env(safe-area-inset-bottom));
-      border-radius: 22px 22px 18px 18px;
-      max-height: min(58vh, 520px);
-      overflow: auto;
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      width: min(420px, calc(100vw - 20px));
+      bottom: calc(84px + env(safe-area-inset-bottom));
+      border-radius: 20px;
+      max-height: none;
+      overflow: visible;
+      padding: 14px;
     }
-    body.mobile-ui .hero-score,
-    body.mobile-ui .quick-grid,
+    body.mobile-ui .hero-score {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    body.mobile-ui .quick-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
     body.mobile-ui .details-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
     body.mobile-ui .action-row {
       flex-direction: column;
     }
+    body.mobile-ui .metric-btn {
+      padding: 10px;
+      border-radius: 12px;
+    }
+    body.mobile-ui .metric-btn .label {
+      font-size: 10px;
+    }
+    body.mobile-ui .metric-btn .value {
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    body.mobile-ui .metric-btn .hint {
+      font-size: 10px;
+      margin-top: 3px;
+    }
     body.mobile-ui .details-modal,
     body.mobile-ui .info-modal {
-      width: calc(100vw - 12px);
-      max-height: calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      width: min(440px, calc(100vw - 20px));
+      max-height: calc(100vh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       padding: 14px;
-      top: calc(6px + env(safe-area-inset-top));
-      left: 6px;
-      transform: none;
+      top: calc(10px + env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
       border-radius: 24px;
     }
     body.mobile-ui .fab-stack {
@@ -829,8 +852,8 @@
     let loaderPulseStart = 0;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
-    const GRID_ANIMATION_BATCH_SIZE = 10;
-    const GRID_ANIMATION_STEP_MS = 28;
+    const GRID_ANIMATION_BATCH_SIZE = 4;
+    const GRID_ANIMATION_STEP_MS = 48;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
     let userLocationMarker = null;
     const DEFAULT_CENTER = { lat: 45.7640, lon: 4.8357, label: 'Lyon' };
@@ -1001,7 +1024,7 @@
     }
 
     function durationForDistance(distanceKm) {
-      return Math.max(1400, Math.min(3200, 1200 + distanceKm * 2.4));
+      return Math.max(5600, Math.min(12800, 5200 + distanceKm * 9.6));
     }
 
     function animateCameraToCenter(center, zoomOverride = null) {
@@ -1013,8 +1036,8 @@
         center: [center.lon, center.lat],
         zoom: Number.isFinite(zoomOverride) ? zoomOverride : targetZoomForDistance(distanceKm),
         minZoom: minZoomForDistance(distanceKm),
-        speed: 0.48,
-        curve: 1.58,
+        speed: 0.18,
+        curve: 1.28,
         essential: true,
         duration: durationForDistance(distanceKm)
       });
@@ -1027,10 +1050,10 @@
       }
       loaderPulseStart = 0;
       if (map.getLayer('grid-loader-fill')) {
-        map.setPaintProperty('grid-loader-fill', 'fill-opacity', 0.14);
+        map.setPaintProperty('grid-loader-fill', 'fill-opacity', 0.10);
       }
       if (map.getLayer('grid-loader-outline')) {
-        map.setPaintProperty('grid-loader-outline', 'line-opacity', 0.45);
+        map.setPaintProperty('grid-loader-outline', 'line-opacity', 0.26);
       }
     }
 
@@ -1045,8 +1068,8 @@
         }
         const t = (now - loaderPulseStart) / 1000;
         const wave = (Math.sin(t * Math.PI * 1.25) + 1) / 2;
-        const fillOpacity = 0.08 + wave * 0.12;
-        const lineOpacity = 0.28 + wave * 0.26;
+        const fillOpacity = 0.07 + wave * 0.07;
+        const lineOpacity = 0.22 + wave * 0.16;
         map.setPaintProperty('grid-loader-fill', 'fill-opacity', fillOpacity);
         map.setPaintProperty('grid-loader-outline', 'line-opacity', lineOpacity);
         loaderPulseFrame = requestAnimationFrame(tick);
