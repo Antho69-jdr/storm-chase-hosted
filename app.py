@@ -5,18 +5,18 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from weather_logic import build_latest_payload
+from weather_logic import DEFAULT_CENTER_LABEL, build_latest_payload
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 CACHE_TTL_SECONDS = 15 * 60
 
-app = FastAPI(title="Storm Chase", version="1.0.0")
+app = FastAPI(title="Storm Chase", version="1.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,8 +26,12 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-_cache: dict[str, Any] = {"ts": 0.0, "payload": None}
+_cache: dict[str, dict[str, Any]] = {}
 _lock = asyncio.Lock()
+
+
+def _cache_key(lat: float, lon: float, label: str) -> str:
+    return f"{lat:.3f}:{lon:.3f}:{label.strip().lower()}"
 
 
 @app.get("/api/health")
@@ -36,27 +40,34 @@ def health() -> dict[str, str]:
 
 
 @app.get("/api/latest")
-async def latest(force: bool = False) -> dict:
+async def latest(
+    lat: float = Query(45.7640, ge=-90, le=90),
+    lon: float = Query(4.8357, ge=-180, le=180),
+    label: str = Query(DEFAULT_CENTER_LABEL, min_length=1, max_length=120),
+    force: bool = False,
+) -> dict:
     now = time.time()
-    if not force and _cache["payload"] is not None and now - _cache["ts"] < CACHE_TTL_SECONDS:
-        return _cache["payload"]
+    key = _cache_key(lat, lon, label)
+    cached = _cache.get(key)
+    if not force and cached is not None and now - cached["ts"] < CACHE_TTL_SECONDS:
+        return cached["payload"]
 
     async with _lock:
         now = time.time()
-        if not force and _cache["payload"] is not None and now - _cache["ts"] < CACHE_TTL_SECONDS:
-            return _cache["payload"]
+        cached = _cache.get(key)
+        if not force and cached is not None and now - cached["ts"] < CACHE_TTL_SECONDS:
+            return cached["payload"]
         try:
-            payload = await asyncio.to_thread(build_latest_payload)
+            payload = await asyncio.to_thread(build_latest_payload, lat, lon, label)
         except Exception as exc:
-            if _cache["payload"] is not None:
-                stale = dict(_cache["payload"])
+            if cached is not None:
+                stale = dict(cached["payload"])
                 meta = dict(stale.get("meta", {}))
                 meta["warning"] = f"Fallback stale cache after refresh error: {exc}"
                 stale["meta"] = meta
                 return stale
             raise HTTPException(status_code=502, detail=f"Weather refresh failed: {exc}")
-        _cache["payload"] = payload
-        _cache["ts"] = time.time()
+        _cache[key] = {"ts": time.time(), "payload": payload}
         return payload
 
 

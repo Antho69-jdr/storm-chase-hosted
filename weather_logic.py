@@ -17,8 +17,9 @@ API_BASE = "https://api.open-meteo.com/v1/meteofrance"
 OUTPUT_JSON = Path("orages_output_horizons.json")
 TIMEZONE = "auto"
 
-CENTER_LAT = 45.7640
-CENTER_LON = 4.8357
+DEFAULT_CENTER_LAT = 45.7640
+DEFAULT_CENTER_LON = 4.8357
+DEFAULT_CENTER_LABEL = "Lyon"
 HALF_BOX_KM_LAT = 25.0
 HALF_BOX_KM_LON = 25.0
 CELL_SIZE_KM = 6.5
@@ -114,16 +115,18 @@ def frange(start: float, stop: float, step: float) -> Iterable[float]:
         value += step
 
 
-def build_grid() -> list[Point]:
+def build_grid(center_lat: float = DEFAULT_CENTER_LAT, center_lon: float = DEFAULT_CENTER_LON, zone_prefix: str = DEFAULT_CENTER_LABEL) -> list[Point]:
     half_lat_deg = km_to_deg_lat(HALF_BOX_KM_LAT)
-    half_lon_deg = km_to_deg_lon(HALF_BOX_KM_LON, CENTER_LAT)
+    half_lon_deg = km_to_deg_lon(HALF_BOX_KM_LON, center_lat)
     step_lat = km_to_deg_lat(CELL_SIZE_KM)
-    step_lon = km_to_deg_lon(CELL_SIZE_KM, CENTER_LAT)
+    step_lon = km_to_deg_lon(CELL_SIZE_KM, center_lat)
 
-    min_lat = CENTER_LAT - half_lat_deg
-    max_lat = CENTER_LAT + half_lat_deg
-    min_lon = CENTER_LON - half_lon_deg
-    max_lon = CENTER_LON + half_lon_deg
+    min_lat = center_lat - half_lat_deg
+    max_lat = center_lat + half_lat_deg
+    min_lon = center_lon - half_lon_deg
+    max_lon = center_lon + half_lon_deg
+
+    safe_prefix = "".join(ch for ch in zone_prefix if ch.isalnum())[:14] or "Zone"
 
     points: list[Point] = []
     idx = 1
@@ -132,7 +135,7 @@ def build_grid() -> list[Point]:
         for lon in frange(min_lon, max_lon, step_lon):
             points.append(
                 Point(
-                    zone=f"LyonCell-{idx}",
+                    zone=f"{safe_prefix}-{idx}",
                     lat=lat,
                     lon=lon,
                     cell_height_deg=step_lat,
@@ -545,7 +548,7 @@ def fetch_model(points: list[Point]) -> list[OutputRow]:
     return rows
 
 
-def group_for_output(rows: list[OutputRow]) -> dict:
+def group_for_output(rows: list[OutputRow], center_lat: float, center_lon: float, center_label: str) -> dict:
     days_map: dict[str, dict] = {}
     for row in rows:
         day = days_map.setdefault(
@@ -596,7 +599,7 @@ def group_for_output(rows: list[OutputRow]) -> dict:
         "meta": {
             "generated_at": generated_at,
             "model": MODEL,
-            "center": {"lat": CENTER_LAT, "lon": CENTER_LON},
+            "center": {"lat": center_lat, "lon": center_lon, "label": center_label},
             "grid": {
                 "half_box_km_lat": HALF_BOX_KM_LAT,
                 "half_box_km_lon": HALF_BOX_KM_LON,
@@ -633,10 +636,10 @@ def print_summary(rows: list[OutputRow]) -> None:
 
 def main() -> None:
     points = build_grid()
-    print(f"Grille lyonnaise construite : {len(points)} points")
+    print(f"Grille construite autour de {DEFAULT_CENTER_LABEL} : {len(points)} points")
     rows = fetch_model(points)
     print(f"{MODEL} : {len(rows)} lignes générées")
-    payload = group_for_output(rows)
+    payload = group_for_output(rows, DEFAULT_CENTER_LAT, DEFAULT_CENTER_LON, DEFAULT_CENTER_LABEL)
     write_json_payload(payload, OUTPUT_JSON)
     print_summary(rows)
     print(f"\nJSON écrit : {OUTPUT_JSON.resolve()}")
@@ -653,7 +656,7 @@ if __name__ == "__main__":
 
 
 
-def build_latest_payload() -> dict:
-    points = build_grid()
+def build_latest_payload(center_lat: float = DEFAULT_CENTER_LAT, center_lon: float = DEFAULT_CENTER_LON, center_label: str = DEFAULT_CENTER_LABEL) -> dict:
+    points = build_grid(center_lat=center_lat, center_lon=center_lon, zone_prefix=center_label)
     rows = fetch_model(points)
-    return group_for_output(rows)
+    return group_for_output(rows, center_lat, center_lon, center_label)
