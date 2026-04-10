@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#07111f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Storm Chase" />
+  <link rel="manifest" href="/static/storm-chase.webmanifest" />
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
+  <title>Storm Chase MVP — Tactile</title>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: rgba(10, 18, 32, 0.88);
+      --panel-2: rgba(15, 23, 42, 0.96);
+      --text: #e5eefc;
+      --muted: #b7c7df;
+      --border: rgba(255,255,255,0.11);
+      --shadow: 0 12px 30px rgba(0,0,0,0.28);
+      --accent: #3b82f6;
+      --accent-2: rgba(59,130,246,0.18);
+      --overlay-backdrop: rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
+    body { overflow: hidden; }
+    #app { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+    #map { position: absolute; inset: 0; }
+
+    .overlay {
+      position: absolute;
+      z-index: 10;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(860px, calc(100vw - 20px));
+      border-radius: 18px;
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 42px;
+      transition: background .15s ease, border-color .15s ease, transform .15s ease;
+    }
+
+    button:active { transform: scale(0.985); }
+    button.active {
+      background: rgba(59,130,246,0.95);
+      border-color: rgba(255,255,255,0.28);
+    }
+
+    .statusbar {
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(460px, calc(100vw - 20px));
+      border-radius: 18px;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .meta-corner {
+      position: absolute;
+      z-index: 11;
+      left: 12px;
+      bottom: 12px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(10, 18, 32, 0.78);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      max-width: min(420px, calc(100vw - 24px));
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 800;
+      margin: 0 0 8px;
+    }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .kpi {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .kpi .label { color: var(--muted); font-size: 11px; }
+    .kpi .value { margin-top: 6px; font-size: 20px; font-weight: 800; }
+
+    .legend-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .legend-gradient {
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: linear-gradient(
+        90deg,
+        rgb(37, 99, 235) 0%,
+        rgb(34, 197, 94) 35%,
+        rgb(245, 158, 11) 65%,
+        rgb(239, 68, 68) 85%,
+        rgb(239, 68, 68) 100%
+      );
+      overflow: hidden;
+    }
+
+    .legend-scale {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1;
+      padding: 0 2px;
+    }
+
+
+
+    .selection-card {
+      position: absolute;
+      z-index: 16;
+      left: 50%;
+      bottom: 130px;
+      transform: translateX(-50%);
+      width: min(440px, calc(100vw - 20px));
+      border-radius: 20px;
+      padding: 16px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      display: none;
+    }
+
+    .selection-card.visible { display: block; }
+    .selection-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .selection-title { font-size: 18px; font-weight: 800; margin: 0; }
+    .selection-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .icon-btn {
+      min-width: 42px;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .hero-score {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .hero-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .hero-box .label { font-size: 11px; color: var(--muted); }
+    .hero-box .value { margin-top: 6px; font-size: 22px; font-weight: 800; }
+    .hero-box .subvalue { margin-top: 4px; font-size: 13px; }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .quick-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+      text-align: center;
+    }
+    .quick-item .label { font-size: 11px; color: var(--muted); }
+    .quick-item .value { margin-top: 6px; font-size: 16px; font-weight: 800; }
+
+    .summary-box {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.2);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .action-row button { flex: 1; }
+    .primary-btn {
+      background: rgba(59,130,246,0.95);
+      border-color: rgba(255,255,255,0.28);
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      background: var(--overlay-backdrop);
+      backdrop-filter: blur(3px);
+      display: none;
+    }
+    .modal-backdrop.visible { display: block; }
+
+    .details-modal {
+      position: absolute;
+      z-index: 21;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(560px, calc(100vw - 20px));
+      max-height: min(78vh, 760px);
+      overflow: auto;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: none;
+    }
+    .details-modal.visible { display: block; }
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .detail-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .detail-item .label { font-size: 11px; color: var(--muted); }
+    .detail-item .value { margin-top: 6px; font-size: 18px; font-weight: 800; }
+    .detail-item .hint { margin-top: 4px; font-size: 12px; color: var(--muted); }
+
+    .metric-btn {
+      width: 100%;
+      text-align: left;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      min-height: 0;
+    }
+    .metric-btn .label { font-size: 11px; color: var(--muted); display: block; }
+    .metric-btn .value { margin-top: 6px; font-size: 18px; font-weight: 800; display: block; }
+    .metric-btn .hint { margin-top: 4px; font-size: 12px; color: var(--muted); display: block; }
+    .metric-btn:hover, .metric-btn:focus-visible { background: rgba(59,130,246,0.10); border-color: rgba(59,130,246,0.45); }
+
+    .info-modal {
+      position: absolute;
+      z-index: 22;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(480px, calc(100vw - 20px));
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: none;
+    }
+    .info-modal.visible { display: block; }
+    .info-modal p { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 10px 0 0; }
+
+
+
+    .fab-stack {
+      position: absolute;
+      z-index: 17;
+      right: 12px;
+      bottom: 110px;
+      display: grid;
+      gap: 10px;
+    }
+    .fab {
+      width: 52px;
+      height: 52px;
+      min-width: 52px;
+      padding: 0;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(10, 18, 32, 0.92);
+      box-shadow: var(--shadow);
+      font-size: 20px;
+    }
+    .fab.small-label {
+      width: auto;
+      min-width: 52px;
+      padding: 0 14px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .floating-chip {
+      position: absolute;
+      z-index: 17;
+      top: calc(12px + env(safe-area-inset-top));
+      right: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(10, 18, 32, 0.92);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      color: var(--muted);
+      backdrop-filter: blur(12px);
+    }
+    .floating-chip.visible { display: inline-flex; }
+    .drag-handle {
+      width: 44px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.16);
+      margin: 0 auto 12px;
+    }
+    .topbar, .statusbar, .selection-card, .details-modal, .info-modal, .meta-corner {
+      padding-top: calc(10px + env(safe-area-inset-top) * 0);
+    }
+    .statusbar {
+      bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    .meta-corner {
+      bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    .selection-card {
+      bottom: calc(130px + env(safe-area-inset-bottom));
+    }
+    .touch-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .statusbar { width: min(460px, calc(100vw - 20px)); }
+    }
+
+    @media (max-width: 640px) {
+      .topbar {
+        top: max(8px, env(safe-area-inset-top));
+        width: calc(100vw - 12px);
+        left: 6px;
+        transform: none;
+        padding: 8px;
+      }
+      .button-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .button-row::-webkit-scrollbar { display: none; }
+      button { flex: 0 0 auto; min-width: 88px; min-height: 46px; }
+      .statusbar {
+        left: 6px;
+        transform: none;
+        width: calc(100vw - 12px);
+        bottom: max(6px, env(safe-area-inset-bottom));
+      }
+      .meta-corner {
+        left: 6px;
+        width: auto;
+        max-width: calc(100vw - 72px);
+        bottom: calc(72px + env(safe-area-inset-bottom));
+      }
+      .selection-card {
+        left: 6px;
+        right: 6px;
+        transform: none;
+        width: auto;
+        bottom: calc(82px + env(safe-area-inset-bottom));
+        border-radius: 22px 22px 18px 18px;
+      }
+      .hero-score,
+      .quick-grid,
+      .details-grid {
+        grid-template-columns: 1fr;
+      }
+      .action-row {
+        flex-direction: column;
+      }
+      .details-modal,
+      .info-modal {
+        width: calc(100vw - 12px);
+        max-height: calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        padding: 14px;
+        top: calc(6px + env(safe-area-inset-top));
+        left: 6px;
+        transform: none;
+        border-radius: 24px;
+      }
+      .fab-stack {
+        right: 6px;
+        bottom: calc(148px + env(safe-area-inset-bottom));
+      }
+      .fab { width: 48px; height: 48px; min-width: 48px; }
+    }
+
+    @media (min-width: 641px) and (max-width: 1024px) and (orientation: landscape) {
+      .topbar {
+        left: 12px;
+        transform: none;
+        width: min(520px, calc(100vw - 24px));
+      }
+      .selection-card {
+        left: auto;
+        right: 12px;
+        bottom: 16px;
+        transform: none;
+        width: min(420px, calc(50vw - 18px));
+      }
+      .statusbar {
+        left: 12px;
+        transform: none;
+        width: min(320px, calc(100vw - 24px));
+      }
+      .meta-corner {
+        left: 12px;
+        bottom: 92px;
+      }
+      .fab-stack {
+        right: 12px;
+        bottom: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="map"></div>
+
+    <div class="overlay topbar">
+      <div id="dayButtons" class="button-row"></div>
+      <div id="slotButtons" class="button-row"></div>
+    </div>
+
+    <div class="floating-chip" id="installChip">App installable</div>
+
+    <div class="fab-stack">
+      <button class="fab" id="locateBtn" aria-label="Me localiser">◎</button>
+      <button class="fab small-label" id="installBtn" aria-label="Installer l’application" style="display:none;">Installer</button>
+    </div>
+
+    <div class="selection-card" id="selectionCard" aria-live="polite">
+      <div class="drag-handle" aria-hidden="true"></div>
+      <div class="selection-top">
+        <div>
+          <h2 class="selection-title" id="selectionTitle">Zone</h2>
+          <div class="selection-subtitle" id="selectionSubtitle">Jour · créneau · heure</div>
+        </div>
+        <button class="icon-btn" id="closeSelectionBtn" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="hero-score">
+        <button class="metric-btn" data-metric="score_global"><span class="label">Score global</span><span class="value" id="selectionScore">-</span><span class="hint" id="selectionPotential">-</span></button>
+        <button class="metric-btn" data-metric="confidence_score"><span class="label">Confiance</span><span class="value" id="selectionConfidence">-</span><span class="hint" id="selectionConfidenceLabel">-</span></button>
+      </div>
+
+      <div class="quick-grid">
+        <button class="metric-btn" data-metric="trigger_score"><span class="label">Déclenchement</span><span class="value" id="selectionTrigger">-</span><span class="hint">Pourquoi cette note ?</span></button>
+        <button class="metric-btn" data-metric="structure_score"><span class="label">Organisation</span><span class="value" id="selectionStructure">-</span><span class="hint">Pourquoi cette note ?</span></button>
+        <button class="metric-btn" data-metric="chase_quality_score"><span class="label">Qualité chasse</span><span class="value" id="selectionQuality">-</span><span class="hint">Pourquoi cette note ?</span></button>
+      </div>
+
+      <div class="summary-box" id="selectionSummary">Touchez une cellule pour voir son résumé.</div>
+
+      <div class="touch-note">Interaction tactile : touchez une case pour ouvrir sa fiche, puis “Détails” pour approfondir.</div>
+
+      <div class="action-row">
+        <button class="primary-btn" id="openDetailsBtn">Détails</button>
+        <button id="recenterBtn">Recentrer</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="details-modal" id="detailsModal" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+      <div class="details-header">
+        <div>
+          <div class="title" id="detailsTitle">Détails cellule</div>
+          <div class="small muted" id="detailsSubtitle">Zone</div>
+        </div>
+        <button class="icon-btn" id="closeDetailsBtn" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="summary-box" id="detailsSummary">Aucune cellule sélectionnée.</div>
+
+      <div class="details-grid">
+        <button class="metric-btn" data-metric="mucape"><span class="label">CAPE</span><span class="value" id="dCape">-</span><span class="hint">Instabilité disponible</span></button>
+        <button class="metric-btn" data-metric="shear_ms"><span class="label">Shear</span><span class="value" id="dShear">-</span><span class="hint">Organisation potentielle</span></button>
+        <button class="metric-btn" data-metric="relative_humidity_2m"><span class="label">Humidité 2m</span><span class="value" id="dRh">-</span><span class="hint">Alimentation en basse couche</span></button>
+        <button class="metric-btn" data-metric="vapour_pressure_deficit"><span class="label">VPD</span><span class="value" id="dVpd">-</span><span class="hint">Sécheresse relative</span></button>
+        <button class="metric-btn" data-metric="wet_bulb_temperature_2m"><span class="label">Bulbe humide</span><span class="value" id="dWetbulb">-</span><span class="hint">Thermodynamique de basse couche</span></button>
+        <button class="metric-btn" data-metric="dewpoint_c"><span class="label">Point de rosée</span><span class="value" id="dDewpoint">-</span><span class="hint">Charge en humidité</span></button>
+        <button class="metric-btn" data-metric="temp_c"><span class="label">Température</span><span class="value" id="dTemp">-</span><span class="hint">Surface</span></button>
+        <button class="metric-btn" data-metric="wind_gusts_10m"><span class="label">Rafales 10m</span><span class="value" id="dGusts">-</span><span class="hint">Dynamique de surface</span></button>
+        <button class="metric-btn" data-metric="cloud_cover_low"><span class="label">Nuages bas</span><span class="value" id="dCloudLow">-</span><span class="hint">Peut gêner l’insolation</span></button>
+        <button class="metric-btn" data-metric="cloud_cover_mid"><span class="label">Nuages moyens</span><span class="value" id="dCloudMid">-</span><span class="hint">Crasse intermédiaire</span></button>
+        <button class="metric-btn" data-metric="cloud_cover_high"><span class="label">Nuages hauts</span><span class="value" id="dCloudHigh">-</span><span class="hint">Voile d’altitude</span></button>
+        <button class="metric-btn" data-metric="selected_hour"><span class="label">Heure retenue</span><span class="value" id="dHour">-</span><span class="hint">Heure la plus favorable</span></button>
+      </div>
+    </div>
+
+    <div class="overlay statusbar">
+      <div class="legend-wrap" aria-label="Légende couleurs score global">
+        <div class="legend-gradient"></div>
+        <div class="legend-scale">
+          <span>0</span>
+          <span>35</span>
+          <span>65</span>
+          <span>85</span>
+          <span>100</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-corner" id="metaLine">Chargement des données…</div>
+
+    <div class="modal-backdrop" id="infoBackdrop"></div>
+    <div class="info-modal" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+      <div class="details-header">
+        <div>
+          <div class="title" id="infoTitle">Information métrique</div>
+          <div class="small muted" id="infoMetricLabel">—</div>
+        </div>
+        <button class="icon-btn" id="closeInfoBtn" aria-label="Fermer">×</button>
+      </div>
+      <div class="summary-box" id="infoMetricValue">—</div>
+      <p id="infoExplanation">—</p>
+    </div>
+  </div>
+
+  <script>
+    const STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+    const CENTER = [4.8357, 45.7640];
+
+    const metaLine = document.getElementById('metaLine');
+    const dayButtons = document.getElementById('dayButtons');
+    const slotButtons = document.getElementById('slotButtons');
+
+    const selectionCard = document.getElementById('selectionCard');
+    const selectionTitle = document.getElementById('selectionTitle');
+    const selectionSubtitle = document.getElementById('selectionSubtitle');
+    const selectionScore = document.getElementById('selectionScore');
+    const selectionPotential = document.getElementById('selectionPotential');
+    const selectionConfidence = document.getElementById('selectionConfidence');
+    const selectionConfidenceLabel = document.getElementById('selectionConfidenceLabel');
+    const selectionTrigger = document.getElementById('selectionTrigger');
+    const selectionStructure = document.getElementById('selectionStructure');
+    const selectionQuality = document.getElementById('selectionQuality');
+    const selectionSummary = document.getElementById('selectionSummary');
+    const closeSelectionBtn = document.getElementById('closeSelectionBtn');
+    const openDetailsBtn = document.getElementById('openDetailsBtn');
+    const recenterBtn = document.getElementById('recenterBtn');
+
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const detailsModal = document.getElementById('detailsModal');
+    const detailsSubtitle = document.getElementById('detailsSubtitle');
+    const detailsSummary = document.getElementById('detailsSummary');
+    const closeDetailsBtn = document.getElementById('closeDetailsBtn');
+    const infoBackdrop = document.getElementById('infoBackdrop');
+    const infoModal = document.getElementById('infoModal');
+    const infoMetricLabel = document.getElementById('infoMetricLabel');
+    const infoMetricValue = document.getElementById('infoMetricValue');
+    const infoExplanation = document.getElementById('infoExplanation');
+    const closeInfoBtn = document.getElementById('closeInfoBtn');
+    const locateBtn = document.getElementById('locateBtn');
+    const installBtn = document.getElementById('installBtn');
+    const installChip = document.getElementById('installChip');
+
+    let deferredInstallPrompt = null;
+    let userLocationMarker = null;
+
+    let payload = null;
+    let selectedDayKey = null;
+    let selectedSlotKey = null;
+    let selectedFeature = null;
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: STYLE,
+      center: CENTER,
+      zoom: 9.4,
+      maxZoom: 12.5,
+    });
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    function colorFromScore(score) {
+      const s = Math.max(0, Math.min(100, Number(score) || 0));
+      const stops = [
+        { at: 0, c: [37, 99, 235] },
+        { at: 35, c: [34, 197, 94] },
+        { at: 65, c: [245, 158, 11] },
+        { at: 85, c: [239, 68, 68] },
+      ];
+      let a = stops[0], b = stops[1];
+      if (s >= 65) { a = stops[2]; b = stops[3]; }
+      else if (s >= 35) { a = stops[1]; b = stops[2]; }
+      const t = (s - a.at) / Math.max(1, (b.at - a.at));
+      const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * t);
+      const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * t);
+      const b2 = Math.round(a.c[2] + (b.c[2] - a.c[2]) * t);
+      return `rgb(${r}, ${g}, ${b2})`;
+    }
+
+    function opacityFromConfidence(confidence) {
+      const c = Math.max(0, Math.min(100, Number(confidence) || 0));
+      return 0.12 + (c / 100) * 0.48;
+    }
+
+    function getDays() {
+      return (payload?.days || []).slice().sort((a, b) => a.day_index - b.day_index);
+    }
+
+    function getCurrentDay() {
+      return getDays().find(d => d.day_key === selectedDayKey) || null;
+    }
+
+    function getCurrentSlot() {
+      return getCurrentDay()?.slots?.find(s => s.slot_key === selectedSlotKey) || null;
+    }
+
+    function renderDayButtons() {
+      const days = getDays();
+      dayButtons.innerHTML = '';
+      if (!days.length) return;
+      if (!selectedDayKey || !days.some(d => d.day_key === selectedDayKey)) selectedDayKey = days[0].day_key;
+      for (const day of days) {
+        const btn = document.createElement('button');
+        btn.textContent = day.day_label;
+        btn.className = day.day_key === selectedDayKey ? 'active' : '';
+        btn.onclick = () => {
+          selectedDayKey = day.day_key;
+          const firstSlot = getCurrentDay()?.slots?.[0];
+          if (firstSlot) selectedSlotKey = firstSlot.slot_key;
+          closeSelection();
+          closeDetails();
+          renderDayButtons();
+          renderSlotButtons();
+          refreshMap();
+        };
+        dayButtons.appendChild(btn);
+      }
+    }
+
+    function renderSlotButtons() {
+      const day = getCurrentDay();
+      slotButtons.innerHTML = '';
+      const slots = day?.slots || [];
+      if (!slots.length) return;
+      if (!selectedSlotKey || !slots.some(s => s.slot_key === selectedSlotKey)) selectedSlotKey = slots[0].slot_key;
+      for (const slot of slots) {
+        const btn = document.createElement('button');
+        btn.textContent = slot.slot_label;
+        btn.className = slot.slot_key === selectedSlotKey ? 'active' : '';
+        btn.onclick = () => {
+          selectedSlotKey = slot.slot_key;
+          closeSelection();
+          closeDetails();
+          renderSlotButtons();
+          refreshMap();
+        };
+        slotButtons.appendChild(btn);
+      }
+    }
+
+    function buildGeoJSON(cells) {
+      return {
+        type: 'FeatureCollection',
+        features: cells.map(cell => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[
+              [cell.lon - cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
+              [cell.lon + cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
+              [cell.lon + cell.cell_width_deg / 2, cell.lat + cell.cell_height_deg / 2],
+              [cell.lon - cell.cell_width_deg / 2, cell.lat + cell.cell_height_deg / 2],
+              [cell.lon - cell.cell_width_deg / 2, cell.lat - cell.cell_height_deg / 2],
+            ]],
+          },
+          properties: {
+            ...cell,
+            fill_color: colorFromScore(cell.score_global),
+            fill_opacity: opacityFromConfidence(cell.confidence_score),
+          },
+        })),
+      };
+    }
+
+    function ensureSource(id, data) {
+      if (map.getSource(id)) map.getSource(id).setData(data);
+      else map.addSource(id, { type: 'geojson', data });
+    }
+
+    function removeLayers() {
+      if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
+      if (map.getLayer('grid-outline')) map.removeLayer('grid-outline');
+      if (map.getLayer('grid-fill')) map.removeLayer('grid-fill');
+      if (map.getSource('grid')) map.removeSource('grid');
+      map.off('click', 'grid-fill', onGridClick);
+      map.off('mouseenter', 'grid-fill', onGridEnter);
+      map.off('mouseleave', 'grid-fill', onGridLeave);
+    }
+
+    function addLayers(data) {
+      ensureSource('grid', data);
+      map.addLayer({
+        id: 'grid-fill',
+        type: 'fill',
+        source: 'grid',
+        paint: {
+          'fill-color': ['get', 'fill_color'],
+          'fill-opacity': ['get', 'fill_opacity'],
+        }
+      });
+      map.addLayer({
+        id: 'grid-outline',
+        type: 'line',
+        source: 'grid',
+        paint: {
+          'line-color': ['case', ['>=', ['get', 'chase_quality_score'], 70], '#dbeafe', ['>=', ['get', 'chase_quality_score'], 50], '#fde68a', '#fca5a5'],
+          'line-width': ['case', ['>=', ['get', 'score_global'], 70], 1.6, ['>=', ['get', 'score_global'], 45], 1.2, 0.8],
+          'line-opacity': 0.62,
+        }
+      });
+      map.addLayer({
+        id: 'grid-highlight',
+        type: 'line',
+        source: 'grid',
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 2.6,
+          'line-opacity': ['case', ['==', ['get', 'zone'], selectedFeature?.zone || ''], 1, 0],
+        }
+      });
+
+      map.on('click', 'grid-fill', onGridClick);
+      map.on('mouseenter', 'grid-fill', onGridEnter);
+      map.on('mouseleave', 'grid-fill', onGridLeave);
+    }
+
+    function onGridEnter() {
+      map.getCanvas().style.cursor = 'pointer';
+    }
+
+    function onGridLeave() {
+      map.getCanvas().style.cursor = '';
+    }
+
+    function onGridClick(e) {
+      const p = e.features?.[0]?.properties;
+      if (!p) return;
+      selectedFeature = p;
+      showSelection(p);
+      updateHighlight();
+    }
+
+    function updateHighlight() {
+      if (!map.getLayer('grid-highlight')) return;
+      map.setPaintProperty('grid-highlight', 'line-opacity', ['case', ['==', ['get', 'zone'], selectedFeature?.zone || ''], 1, 0]);
+    }
+
+    function mean(values) {
+      if (!values.length) return 0;
+      return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+    }
+
+    function refreshStats(cells, slot) {
+      return { cells, slot };
+    }
+
+    function refreshMap() {
+      const slot = getCurrentSlot();
+      const cells = slot?.cells || [];
+      refreshStats(cells, slot);
+      if (!map.isStyleLoaded()) return;
+      removeLayers();
+      if (!cells.length) {
+        return;
+      }
+      addLayers(buildGeoJSON(cells));
+      updateHighlight();
+    }
+
+    function safe(value, suffix = '') {
+      if (value === undefined || value === null || value === '') return '-';
+      return `${value}${suffix}`;
+    }
+
+    const METRIC_INFO = {
+      score_global: {
+        label: 'Score global',
+        explain: 'Synthèse du potentiel de la cellule. Il combine le déclenchement, l’organisation et la qualité de chasse. Plus la valeur est haute, plus la zone mérite de l’attention, sans garantir à elle seule un orage.'
+      },
+      confidence_score: {
+        label: 'Confiance',
+        explain: 'Indice de robustesse du signal. Il augmente quand plusieurs paramètres vont dans le même sens. Une confiance élevée signifie un signal plus cohérent, pas forcément un risque plus fort.'
+      },
+      trigger_score: {
+        label: 'Déclenchement',
+        explain: 'Estime la facilité à lancer de la convection. Il repose surtout sur l’instabilité disponible, l’humidité en basse couche, le VPD, le point de rosée et le bulbe humide.'
+      },
+      structure_score: {
+        label: 'Organisation',
+        explain: 'Mesure le potentiel d’organisation des cellules. Il repose principalement sur le cisaillement vertical approximé et la dynamique de surface via les rafales.'
+      },
+      chase_quality_score: {
+        label: 'Qualité chasse',
+        explain: 'Cherche à dire si la zone est exploitable sur le terrain. Il prend en compte surtout la nébulosité et l’environnement visuel, pour éviter les secteurs prometteurs mais peu lisibles.'
+      },
+      mucape: {
+        label: 'CAPE',
+        explain: 'Convective Available Potential Energy. C’est l’énergie disponible pour les ascendances. Plus elle est élevée, plus l’environnement peut soutenir des développements convectifs intenses si un déclenchement se produit.'
+      },
+      shear_ms: {
+        label: 'Shear',
+        explain: 'Cisaillement vertical du vent, ici approché entre 10 m et 100 m. Il aide à l’organisation des cellules et peut favoriser des structures plus durables ou mieux organisées.'
+      },
+      relative_humidity_2m: {
+        label: 'Humidité 2 m',
+        explain: 'Humidité relative près du sol. Une basse couche plus humide favorise généralement l’alimentation convective et limite le mélange trop sec.'
+      },
+      vapour_pressure_deficit: {
+        label: 'VPD',
+        explain: 'Vapour Pressure Deficit, un indicateur de sécheresse de l’air. Un VPD trop élevé traduit souvent une basse couche plus sèche et moins favorable au déclenchement.'
+      },
+      wet_bulb_temperature_2m: {
+        label: 'Bulbe humide',
+        explain: 'Température humide théorique de l’air près du sol. Elle aide à lire le contenu thermo-hygrométrique de la basse couche et le caractère plus ou moins favorable à la convection.'
+      },
+      dewpoint_c: {
+        label: 'Point de rosée',
+        explain: 'Température à laquelle l’air deviendrait saturé. Un point de rosée plus élevé signale souvent une meilleure charge en humidité pour alimenter la convection.'
+      },
+      temp_c: {
+        label: 'Température',
+        explain: 'Température de surface. Elle agit avec l’humidité et l’insolation sur l’instabilité, mais sa lecture seule ne suffit jamais à conclure.'
+      },
+      wind_gusts_10m: {
+        label: 'Rafales 10 m',
+        explain: 'Rafales prévues près du sol. Elles servent ici surtout à qualifier un minimum de dynamique de surface dans l’environnement.'
+      },
+      cloud_cover_low: {
+        label: 'Nuages bas',
+        explain: 'Nébulosité basse couche. Trop de nuages bas peut freiner l’insolation et rendre la zone moins agréable ou moins lisible pour la chasse.'
+      },
+      cloud_cover_mid: {
+        label: 'Nuages moyens',
+        explain: 'Nébulosité de moyenne couche. Une couverture importante peut signaler une masse d’air moins propre ou un potentiel de chauffage diurne réduit.'
+      },
+      cloud_cover_high: {
+        label: 'Nuages hauts',
+        explain: 'Voile d’altitude. Des nuages hauts étendus peuvent limiter le rayonnement solaire et rendre la lecture du ciel moins nette.'
+      },
+      selected_hour: {
+        label: 'Heure retenue',
+        explain: 'Heure jugée la plus favorable dans le créneau sélectionné pour cette cellule, selon le score calculé par le script.'
+      }
+    };
+
+    function toNumber(value) {
+      if (value === undefined || value === null || value === '') return null;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function rangeLine(label, text) {
+      return `<div><strong>${label} :</strong> ${text}</div>`;
+    }
+
+    function operationalGuide(metricKey, rawValue) {
+      const value = toNumber(rawValue);
+      if (metricKey === 'selected_hour') {
+        return {
+          state: 'Lecture',
+          guide: [
+            rangeLine('Usage', 'ce n’est pas un score, mais l’heure jugée la plus favorable dans le créneau affiché.'),
+            rangeLine('Terrain', 'à confronter au radar, aux observations visuelles et à l’évolution réelle de la convection.')
+          ].join('')
+        };
+      }
+      if (value === null) {
+        return { state: 'Valeur indisponible', guide: rangeLine('Lecture', 'aucune interprétation fiable tant que la donnée n’est pas chargée.') };
+      }
+
+      switch (metricKey) {
+        case 'score_global':
+        case 'trigger_score':
+        case 'structure_score':
+        case 'chase_quality_score': {
+          const state = value < 35 ? 'Faible' : value < 65 ? 'Modéré' : value < 85 ? 'Élevé' : 'Très élevé';
+          return {
+            state,
+            guide: [
+              rangeLine('Faible', '0–34 : peu prioritaire.'),
+              rangeLine('Modéré', '35–64 : à surveiller.'),
+              rangeLine('Élevé', '65–84 : zone intéressante.'),
+              rangeLine('Très élevé', '85–100 : cible prioritaire si le reste confirme.')
+            ].join('')
+          };
+        }
+        case 'confidence_score': {
+          const state = value < 35 ? 'Fragile' : value < 65 ? 'Moyenne' : value < 85 ? 'Bonne' : 'Très bonne';
+          return {
+            state,
+            guide: [
+              rangeLine('Fragile', '0–34 : signal instable ou peu cohérent.'),
+              rangeLine('Moyenne', '35–64 : lecture possible, mais prudence.'),
+              rangeLine('Bonne', '65–84 : plusieurs signaux convergent.'),
+              rangeLine('Très bonne', '85–100 : signal solide pour la cellule.')
+            ].join('')
+          };
+        }
+        case 'mucape': {
+          const state = value < 200 ? 'Très faible' : value < 800 ? 'Faible' : value < 1500 ? 'Correcte' : value < 2500 ? 'Forte' : 'Très forte';
+          return {
+            state,
+            guide: [
+              rangeLine('Très faible', '< 200 J/kg : peu d’énergie.'),
+              rangeLine('Faible', '200–799 J/kg : convection limitée.'),
+              rangeLine('Correcte', '800–1499 J/kg : base exploitable.'),
+              rangeLine('Forte', '1500–2499 J/kg : bon carburant convectif.'),
+              rangeLine('Très forte', '≥ 2500 J/kg : environnement potentiellement explosif si déclenchement.')
+            ].join('')
+          };
+        }
+        case 'shear_ms': {
+          const state = value < 10 ? 'Faible' : value < 15 ? 'Correct' : value <= 25 ? 'Favorable' : 'Très dynamique';
+          return {
+            state,
+            guide: [
+              rangeLine('Faible', '< 10 m/s : organisation limitée.'),
+              rangeLine('Correct', '10–14.9 m/s : amélioration possible.'),
+              rangeLine('Favorable', '15–25 m/s : bon créneau pour des structures mieux organisées.'),
+              rangeLine('Très dynamique', '> 25 m/s : environnement très cisaillé, à interpréter avec le reste.')
+            ].join('')
+          };
+        }
+        case 'relative_humidity_2m': {
+          const state = value < 50 ? 'Sèche' : value < 65 ? 'Moyenne' : value < 75 ? 'Humide' : 'Très humide';
+          return {
+            state,
+            guide: [
+              rangeLine('Sèche', '< 50 % : basse couche souvent défavorable.'),
+              rangeLine('Moyenne', '50–64 % : mitigé.'),
+              rangeLine('Humide', '65–74 % : plutôt favorable.'),
+              rangeLine('Très humide', '≥ 75 % : bonne alimentation en humidité.')
+            ].join('')
+          };
+        }
+        case 'vapour_pressure_deficit': {
+          const state = value <= 0.8 ? 'Très favorable' : value <= 1.4 ? 'Favorable' : value <= 2.2 ? 'Moyen' : 'Sec';
+          return {
+            state,
+            guide: [
+              rangeLine('Très favorable', '≤ 0.8 : basse couche bien humide.'),
+              rangeLine('Favorable', '0.81–1.4 : encore bon.'),
+              rangeLine('Moyen', '1.41–2.2 : vigilance.'),
+              rangeLine('Sec', '> 2.2 : air trop sec pour un bon déclenchement.')
+            ].join('')
+          };
+        }
+        case 'wet_bulb_temperature_2m': {
+          const state = value < 12 ? 'Basse' : value < 16 ? 'Moyenne' : 'Favorable';
+          return {
+            state,
+            guide: [
+              rangeLine('Basse', '< 12 °C : contenu humide limité.'),
+              rangeLine('Moyenne', '12–15.9 °C : situation intermédiaire.'),
+              rangeLine('Favorable', '≥ 16 °C : basse couche plus propice à la convection.')
+            ].join('')
+          };
+        }
+        case 'dewpoint_c': {
+          const state = value < 8 ? 'Bas' : value < 12 ? 'Correct' : value < 16 ? 'Humide' : 'Très humide';
+          return {
+            state,
+            guide: [
+              rangeLine('Bas', '< 8 °C : humidité limitée.'),
+              rangeLine('Correct', '8–11.9 °C : acceptable selon le contexte.'),
+              rangeLine('Humide', '12–15.9 °C : alimentation correcte.'),
+              rangeLine('Très humide', '≥ 16 °C : bonne réserve d’humidité.')
+            ].join('')
+          };
+        }
+        case 'temp_c': {
+          const state = value < 18 ? 'Limitée' : value < 24 ? 'Correcte' : value < 30 ? 'Chaude' : 'Très chaude';
+          return {
+            state,
+            guide: [
+              rangeLine('Limitée', '< 18 °C : faible chauffage.'),
+              rangeLine('Correcte', '18–23.9 °C : contexte exploitable.'),
+              rangeLine('Chaude', '24–29.9 °C : bon soutien au chauffage diurne.'),
+              rangeLine('Très chaude', '≥ 30 °C : à lire avec l’humidité, car chaleur seule ne suffit pas.')
+            ].join('')
+          };
+        }
+        case 'wind_gusts_10m': {
+          const state = value < 12 ? 'Faibles' : value < 18 ? 'Présentes' : 'Dynamiques';
+          return {
+            state,
+            guide: [
+              rangeLine('Faibles', '< 12 m/s : peu de dynamique de surface.'),
+              rangeLine('Présentes', '12–17.9 m/s : contribution utile.'),
+              rangeLine('Dynamiques', '≥ 18 m/s : surface plus active.')
+            ].join('')
+          };
+        }
+        case 'cloud_cover_low':
+        case 'cloud_cover_mid': {
+          const state = value <= 55 ? 'Favorables' : value <= 75 ? 'Acceptables' : 'Pénalisants';
+          return {
+            state,
+            guide: [
+              rangeLine('Favorables', '0–55 % : chauffage diurne plutôt préservé.'),
+              rangeLine('Acceptables', '56–75 % : impact possible.'),
+              rangeLine('Pénalisants', '> 75 % : ciel encombré, chasse moins lisible.')
+            ].join('')
+          };
+        }
+        case 'cloud_cover_high': {
+          const state = value <= 70 ? 'Limités' : value < 90 ? 'Présents' : 'Envahissants';
+          return {
+            state,
+            guide: [
+              rangeLine('Limités', '0–70 % : impact réduit.'),
+              rangeLine('Présents', '71–89 % : voile notable.'),
+              rangeLine('Envahissants', '≥ 90 % : fort écran d’altitude.')
+            ].join('')
+          };
+        }
+        default:
+          return { state: 'Lecture', guide: rangeLine('Valeur', 'interprétation contextuelle, à croiser avec le reste.') };
+      }
+    }
+
+    function openMetricInfo(metricKey, currentValue) {
+      const meta = METRIC_INFO[metricKey];
+      if (!meta) return;
+      const op = operationalGuide(metricKey, currentValue);
+      infoMetricLabel.textContent = `${meta.label} · ${op.state}`;
+      infoMetricValue.textContent = currentValue || '—';
+      infoExplanation.innerHTML = `<div>${meta.explain}</div><div style="margin-top:10px;"><strong>Lecture terrain</strong></div><div style="margin-top:6px; display:grid; gap:6px;">${op.guide}</div>`;
+      infoBackdrop.classList.add('visible');
+      infoModal.classList.add('visible');
+    }
+
+    function closeMetricInfo() {
+      infoBackdrop.classList.remove('visible');
+      infoModal.classList.remove('visible');
+    }
+
+    function showSelection(p) {
+      selectionTitle.textContent = p.zone || 'Zone';
+      selectionSubtitle.textContent = `${p.day_label || '—'} · ${p.slot_label || '—'} · ${p.selected_hour || '—'}`;
+      selectionScore.textContent = safe(p.score_global);
+      selectionPotential.textContent = p.potentiel || '—';
+      selectionConfidence.textContent = safe(p.confidence_score);
+      selectionConfidenceLabel.textContent = p.confiance || '—';
+      selectionTrigger.textContent = safe(p.trigger_score);
+      selectionStructure.textContent = safe(p.structure_score);
+      selectionQuality.textContent = safe(p.chase_quality_score);
+      selectionSummary.textContent = p.summary || 'Aucun résumé disponible.';
+      selectionCard.classList.add('visible');
+    }
+
+    function closeSelection() {
+      selectionCard.classList.remove('visible');
+      selectedFeature = null;
+      updateHighlight();
+    }
+
+    function openDetails() {
+      if (!selectedFeature) return;
+      const p = selectedFeature;
+      detailsSubtitle.textContent = `${p.zone || 'Zone'} · ${p.day_label || '—'} · ${p.slot_label || '—'}`;
+      detailsSummary.textContent = p.summary || 'Aucun résumé disponible.';
+      document.getElementById('dCape').textContent = safe(p.mucape);
+      document.getElementById('dShear').textContent = safe(p.shear_ms, ' m/s');
+      document.getElementById('dRh').textContent = safe(p.relative_humidity_2m, ' %');
+      document.getElementById('dVpd').textContent = safe(p.vapour_pressure_deficit);
+      document.getElementById('dWetbulb').textContent = safe(p.wet_bulb_temperature_2m, ' °C');
+      document.getElementById('dDewpoint').textContent = safe(p.dewpoint_c, ' °C');
+      document.getElementById('dTemp').textContent = safe(p.temp_c, ' °C');
+      document.getElementById('dGusts').textContent = safe(p.wind_gusts_10m, ' m/s');
+      document.getElementById('dCloudLow').textContent = safe(p.cloud_cover_low, ' %');
+      document.getElementById('dCloudMid').textContent = safe(p.cloud_cover_mid, ' %');
+      document.getElementById('dCloudHigh').textContent = safe(p.cloud_cover_high, ' %');
+      document.getElementById('dHour').textContent = safe(p.selected_hour);
+      modalBackdrop.classList.add('visible');
+      detailsModal.classList.add('visible');
+    }
+
+    function closeDetails() {
+      modalBackdrop.classList.remove('visible');
+      detailsModal.classList.remove('visible');
+    }
+
+
+    function updateInstallUI() {
+      const installable = !!deferredInstallPrompt;
+      installBtn.style.display = installable ? 'inline-grid' : 'none';
+      installChip.classList.toggle('visible', installable);
+    }
+
+    async function installApp() {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try { await deferredInstallPrompt.userChoice; } catch (_) {}
+      deferredInstallPrompt = null;
+      updateInstallUI();
+    }
+
+    function locateUser() {
+      if (!navigator.geolocation) {
+        metaLine.textContent = 'Géolocalisation non disponible sur cet appareil.';
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          const lngLat = [coords.longitude, coords.latitude];
+          if (!userLocationMarker) {
+            const el = document.createElement('div');
+            el.style.width = '16px';
+            el.style.height = '16px';
+            el.style.borderRadius = '999px';
+            el.style.background = '#60a5fa';
+            el.style.border = '3px solid white';
+            el.style.boxShadow = '0 0 0 6px rgba(96,165,250,0.18)';
+            userLocationMarker = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
+          } else {
+            userLocationMarker.setLngLat(lngLat);
+          }
+          map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 9.8), duration: 700 });
+        },
+        () => {
+          metaLine.textContent = 'Position refusée ou indisponible.';
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    }
+
+    function registerPWA() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        updateInstallUI();
+      });
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        updateInstallUI();
+      });
+      updateInstallUI();
+    }
+
+    async function loadData() {
+      const response = await fetch('/api/latest', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      payload = await response.json();
+      const days = getDays();
+      selectedDayKey = days.find(d => d.day_key === selectedDayKey)?.day_key || days[0]?.day_key || null;
+      const currentDay = getCurrentDay();
+      selectedSlotKey = currentDay?.slots?.find(s => s.slot_key === selectedSlotKey)?.slot_key || currentDay?.slots?.[0]?.slot_key || null;
+      metaLine.textContent = `${payload?.meta?.model || '—'} · ${payload?.meta?.generated_at || '—'}`;
+      renderDayButtons();
+      renderSlotButtons();
+      refreshMap();
+    }
+
+    async function refreshLoop() {
+      try {
+        await loadData();
+      } catch (err) {
+        console.warn(err);
+        metaLine.textContent = `Impossible de charger /api/latest.`;
+      } finally {
+        setTimeout(refreshLoop, 30000);
+      }
+    }
+
+    closeSelectionBtn.addEventListener('click', closeSelection);
+    openDetailsBtn.addEventListener('click', openDetails);
+    recenterBtn.addEventListener('click', () => {
+      if (!selectedFeature) return;
+      map.easeTo({ center: [Number(selectedFeature.lon), Number(selectedFeature.lat)], duration: 700, zoom: Math.max(map.getZoom(), 10.2) });
+    });
+    closeDetailsBtn.addEventListener('click', closeDetails);
+    modalBackdrop.addEventListener('click', closeDetails);
+    closeInfoBtn.addEventListener('click', closeMetricInfo);
+    infoBackdrop.addEventListener('click', closeMetricInfo);
+    locateBtn.addEventListener('click', locateUser);
+    installBtn.addEventListener('click', installApp);
+    installChip.addEventListener('click', installApp);
+
+    document.querySelectorAll('[data-metric]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const metricKey = btn.dataset.metric;
+        const valueEl = btn.querySelector('.value');
+        openMetricInfo(metricKey, valueEl?.textContent?.trim() || '—');
+      });
+    });
+
+    map.on('click', (e) => {
+      const features = map.queryRenderedFeatures(e.point, { layers: ['grid-fill'] });
+      if (!features.length && !detailsModal.classList.contains('visible')) closeSelection();
+    });
+
+    registerPWA();
+
+    map.on('load', async () => {
+      await loadData().catch(err => {
+        console.warn(err);
+        metaLine.textContent = `Impossible de charger /api/latest.`;
+      });
+      refreshLoop();
+    });
+  </script>
+</body>
+</html>
