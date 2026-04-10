@@ -466,6 +466,55 @@
       margin-top: 8px;
     }
 
+    @keyframes loaderPulseGlow {
+      0% { opacity: 0.52; }
+      50% { opacity: 1; }
+      100% { opacity: 0.52; }
+    }
+
+    @media (orientation: landscape) {
+      body.mobile-ui .selection-card {
+        left: auto;
+        right: 6px;
+        width: min(380px, calc(100vw - 18px));
+        max-height: min(64vh, 440px);
+        overflow: auto;
+        bottom: calc(72px + env(safe-area-inset-bottom));
+        border-radius: 20px;
+      }
+      body.mobile-ui .selection-top {
+        position: sticky;
+        top: 0;
+        background: linear-gradient(to bottom, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
+        padding-bottom: 8px;
+        z-index: 1;
+      }
+      body.mobile-ui .selection-card .drag-handle {
+        display: none;
+      }
+      body.mobile-ui .details-modal,
+      body.mobile-ui .info-modal {
+        width: min(520px, calc(100vw - 18px));
+        left: auto;
+        right: 6px;
+        top: 6px;
+        transform: none;
+        max-height: calc(100vh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      }
+      body.mobile-ui .action-row {
+        position: sticky;
+        bottom: 0;
+        background: linear-gradient(to top, rgba(15,23,42,0.98), rgba(15,23,42,0.9));
+        padding-top: 10px;
+      }
+      body.mobile-ui .fab-stack {
+        bottom: calc(96px + env(safe-area-inset-bottom));
+      }
+      body.mobile-ui .meta-corner {
+        max-width: calc(100vw - 96px);
+      }
+    }
+
     @media (max-width: 900px) {
       .statusbar { width: min(460px, calc(100vw - 20px)); }
     }
@@ -537,6 +586,8 @@
       width: auto;
       bottom: calc(82px + env(safe-area-inset-bottom));
       border-radius: 22px 22px 18px 18px;
+      max-height: min(58vh, 520px);
+      overflow: auto;
     }
     body.mobile-ui .hero-score,
     body.mobile-ui .quick-grid,
@@ -774,6 +825,8 @@
     let lastFetchSignature = '';
     let lastFetchAt = 0;
     let gridAnimationToken = 0;
+    let loaderPulseFrame = null;
+    let loaderPulseStart = 0;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
     const GRID_ANIMATION_BATCH_SIZE = 10;
@@ -915,6 +968,92 @@
       }
     }
 
+
+    function haversineKm(a, b) {
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const R = 6371;
+      const dLat = toRad(b.lat - a.lat);
+      const dLon = toRad(b.lon - a.lon);
+      const lat1 = toRad(a.lat);
+      const lat2 = toRad(b.lat);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    function targetZoomForDistance(distanceKm) {
+      if (distanceKm > 800) return 5.1;
+      if (distanceKm > 500) return 5.6;
+      if (distanceKm > 250) return 6.1;
+      if (distanceKm > 120) return 6.7;
+      if (distanceKm > 60) return 7.3;
+      if (distanceKm > 25) return 7.8;
+      return 8.3;
+    }
+
+    function minZoomForDistance(distanceKm) {
+      if (distanceKm > 1000) return 3.0;
+      if (distanceKm > 600) return 3.4;
+      if (distanceKm > 300) return 3.9;
+      if (distanceKm > 150) return 4.5;
+      if (distanceKm > 80) return 5.0;
+      if (distanceKm > 40) return 5.8;
+      return 6.8;
+    }
+
+    function durationForDistance(distanceKm) {
+      return Math.max(1400, Math.min(3200, 1200 + distanceKm * 2.4));
+    }
+
+    function animateCameraToCenter(center, zoomOverride = null) {
+      const current = map.getCenter();
+      const from = { lat: current.lat, lon: current.lng };
+      const to = { lat: center.lat, lon: center.lon };
+      const distanceKm = haversineKm(from, to);
+      map.flyTo({
+        center: [center.lon, center.lat],
+        zoom: Number.isFinite(zoomOverride) ? zoomOverride : targetZoomForDistance(distanceKm),
+        minZoom: minZoomForDistance(distanceKm),
+        speed: 0.48,
+        curve: 1.58,
+        essential: true,
+        duration: durationForDistance(distanceKm)
+      });
+    }
+
+    function stopLoaderPulse() {
+      if (loaderPulseFrame !== null) {
+        cancelAnimationFrame(loaderPulseFrame);
+        loaderPulseFrame = null;
+      }
+      loaderPulseStart = 0;
+      if (map.getLayer('grid-loader-fill')) {
+        map.setPaintProperty('grid-loader-fill', 'fill-opacity', 0.14);
+      }
+      if (map.getLayer('grid-loader-outline')) {
+        map.setPaintProperty('grid-loader-outline', 'line-opacity', 0.45);
+      }
+    }
+
+    function startLoaderPulse() {
+      stopLoaderPulse();
+      if (!map.getLayer('grid-loader-fill')) return;
+      loaderPulseStart = performance.now();
+      const tick = (now) => {
+        if (!map.getLayer('grid-loader-fill')) {
+          stopLoaderPulse();
+          return;
+        }
+        const t = (now - loaderPulseStart) / 1000;
+        const wave = (Math.sin(t * Math.PI * 1.25) + 1) / 2;
+        const fillOpacity = 0.08 + wave * 0.12;
+        const lineOpacity = 0.28 + wave * 0.26;
+        map.setPaintProperty('grid-loader-fill', 'fill-opacity', fillOpacity);
+        map.setPaintProperty('grid-loader-outline', 'line-opacity', lineOpacity);
+        loaderPulseFrame = requestAnimationFrame(tick);
+      };
+      loaderPulseFrame = requestAnimationFrame(tick);
+    }
+
     async function geocodeCity(query) {
       const q = query.trim();
       if (!q) throw new Error('Ville vide');
@@ -935,7 +1074,7 @@
       selectedFeature = null;
       closeSelection();
       closeDetails();
-      map.easeTo({ center: [currentCenter.lon, currentCenter.lat], zoom: Number.isFinite(options.zoom) ? options.zoom : Math.min(map.getZoom(), 8.3), duration: 1100, easing: t => 1 - Math.pow(1 - t, 3) });
+      animateCameraToCenter(currentCenter, Number.isFinite(options.zoom) ? options.zoom : null);
       showLoadingGrid(currentCenter);
       if (options.showMarker) showCurrentMarker(currentCenter.lon, currentCenter.lat);
       closeTopPanels();
@@ -960,8 +1099,6 @@
           renderDayButtons();
           renderSlotButtons();
           refreshMap();
-          closeTopPanels();
-          closeTopPanels();
         };
         dayButtons.appendChild(btn);
       }
@@ -1088,6 +1225,7 @@
 
     function removeLoaderLayers() {
       gridAnimationToken += 1;
+      stopLoaderPulse();
       if (map.getLayer('grid-loader-outline')) map.removeLayer('grid-loader-outline');
       if (map.getLayer('grid-loader-fill')) map.removeLayer('grid-loader-fill');
       if (map.getSource('grid-loader')) map.removeSource('grid-loader');
@@ -1103,8 +1241,8 @@
         type: 'fill',
         source: 'grid-loader',
         paint: {
-          'fill-color': '#60a5fa',
-          'fill-opacity': 0.12,
+          'fill-color': '#7dd3fc',
+          'fill-opacity': 0.14,
         }
       });
       map.addLayer({
@@ -1112,12 +1250,12 @@
         type: 'line',
         source: 'grid-loader',
         paint: {
-          'line-color': 'rgba(191,219,254,0.85)',
+          'line-color': 'rgba(191,219,254,0.75)',
           'line-width': 1,
           'line-opacity': 0.45,
         }
       });
-      animateRevealToSource('grid-loader', cells, buildGeoJSON);
+      animateRevealToSource('grid-loader', cells, buildGeoJSON, startLoaderPulse);
     }
 
     function removeLayers() {
