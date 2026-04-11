@@ -1148,7 +1148,7 @@
     let centerChangeToken = 0;
     let geocodeController = null;
     let activeFetchToken = 0;
-    const LOADER_GRID_SIZE = 7;
+    const LOADER_GRID_SIZE = 9;
     const LOADER_CELL_SIZE_KM = 6.5;
     const GRID_ANIMATION_TOTAL_MS = 520;
     const GRID_ANIMATION_CELL_MS = 340;
@@ -1387,24 +1387,23 @@
         loaderPulseFrame = null;
       }
       loaderPulseStart = 0;
-      if (map.getLayer('grid-loader-fill')) {
-        map.setPaintProperty('grid-loader-fill', 'fill-opacity', 0.10);
+      if (map.getSource('grid-loader')) {
+        map.getSource('grid-loader').setData(buildLoaderGeoJSON(buildLoaderCells(currentCenter), 0));
       }
     }
 
     function startLoaderPulse() {
       stopLoaderPulse();
-      if (!map.getLayer('grid-loader-fill')) return;
+      if (!map.getSource('grid-loader')) return;
+      const loaderCells = buildLoaderCells(currentCenter);
       loaderPulseStart = performance.now();
       const tick = (now) => {
-        if (!map.getLayer('grid-loader-fill')) {
+        if (!map.getSource('grid-loader')) {
           stopLoaderPulse();
           return;
         }
-        const t = (now - loaderPulseStart) / 1000;
-        const wave = (Math.sin(t * Math.PI * 1.25) + 1) / 2;
-        const fillOpacity = 0.05 + wave * 0.04;
-        map.setPaintProperty('grid-loader-fill', 'fill-opacity', fillOpacity);
+        const elapsedMs = now - loaderPulseStart;
+        map.getSource('grid-loader').setData(buildLoaderGeoJSON(loaderCells, elapsedMs));
         loaderPulseFrame = requestAnimationFrame(tick);
       };
       loaderPulseFrame = requestAnimationFrame(tick);
@@ -1589,11 +1588,20 @@
       const derived = deriveGridTemplate(currentCells);
       if (derived) {
         lastGridTemplate = derived;
-        return derived;
+        return {
+          rows: LOADER_GRID_SIZE,
+          cols: LOADER_GRID_SIZE,
+          cellHeightDeg: derived.cellHeightDeg,
+          cellWidthDeg: derived.cellWidthDeg,
+        };
       }
       if (lastGridTemplate) {
         return {
-          ...lastGridTemplate,
+          rows: LOADER_GRID_SIZE,
+          cols: LOADER_GRID_SIZE,
+          cellHeightDeg: Number.isFinite(lastGridTemplate.cellHeightDeg) && lastGridTemplate.cellHeightDeg > 0
+            ? lastGridTemplate.cellHeightDeg
+            : kmToDegLat(LOADER_CELL_SIZE_KM),
           cellWidthDeg: Number.isFinite(lastGridTemplate.cellWidthDeg) && lastGridTemplate.cellWidthDeg > 0
             ? lastGridTemplate.cellWidthDeg
             : kmToDegLon(LOADER_CELL_SIZE_KM, center.lat),
@@ -1636,8 +1644,34 @@
       return cells;
     }
 
-    function buildLoaderGeoJSON(center) {
-      return buildGeoJSON(buildLoaderCells(center));
+    function buildLoaderGeoJSON(cells, elapsedMs = 0) {
+      if (!Array.isArray(cells) || !cells.length) {
+        return { type: 'FeatureCollection', features: [] };
+      }
+      const centerLat = cells.reduce((sum, cell) => sum + Number(cell.lat || 0), 0) / cells.length;
+      const centerLon = cells.reduce((sum, cell) => sum + Number(cell.lon || 0), 0) / cells.length;
+      const distances = cells.map(cell => {
+        const dLat = Number(cell.lat || 0) - centerLat;
+        const dLon = Number(cell.lon || 0) - centerLon;
+        return Math.hypot(dLat, dLon);
+      });
+      const maxDist = Math.max(...distances, 1e-9);
+      const seconds = elapsedMs / 1000;
+      const front = (seconds * 0.34) % 1.2;
+      const spread = 0.16;
+      const features = cells.map((cell, idx) => {
+        const dist = distances[idx] / maxDist;
+        const primary = Math.exp(-Math.pow((dist - front) / spread, 2));
+        const echo = Math.exp(-Math.pow((dist - (front - 0.42)) / (spread * 1.18), 2));
+        const crest = Math.max(primary, echo * 0.68);
+        const shimmer = 0.5 + 0.5 * Math.sin(seconds * Math.PI * 0.9 + dist * Math.PI * 2.6);
+        const opacity = 0.028 + crest * 0.11 + shimmer * 0.012;
+        const feature = cellToFeature(cell, new Set(), { opacity, latOffset: 0, lonOffset: 0 });
+        feature.properties.fill_opacity = opacity;
+        feature.properties.loader_dist = dist;
+        return feature;
+      });
+      return { type: 'FeatureCollection', features };
     }
 
     function computeBestZoneSet(cells) {
@@ -1707,7 +1741,7 @@
       if (!source) return;
       const start = performance.now();
       const progressByZone = new Map();
-      const staggerSpan = GRID_ANIMATION_STAGGER_SPAN_MS;
+      const staggerSpan = GRID_ANIMATION_STAGGER_SPAN_MS * 1.28;
       const count = Math.max(1, orderedCells.length - 1);
       const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
       const frame = (now) => {
@@ -1717,7 +1751,7 @@
         progressByZone.clear();
         for (let i = 0; i < orderedCells.length; i += 1) {
           const begin = (i / count) * staggerSpan;
-          const raw = Math.max(0, Math.min(1, (elapsed - begin) / GRID_ANIMATION_CELL_MS));
+          const raw = Math.max(0, Math.min(1, (elapsed - begin) / (GRID_ANIMATION_CELL_MS * 1.22)));
           const eased = raw <= 0 ? 0 : easeOutQuart(raw);
           progressByZone.set(orderedCells[i].zone, eased);
           if (raw >= 1) finished += 1;
@@ -1764,17 +1798,17 @@
       if (!map.isStyleLoaded()) return;
       removeLoaderLayers();
       const cells = buildLoaderCells(center);
-      ensureSource('grid-loader', buildGeoJSON(cells));
+      ensureSource('grid-loader', buildLoaderGeoJSON(cells, 0));
       map.addLayer({
         id: 'grid-loader-fill',
         type: 'fill',
         source: 'grid-loader',
         paint: {
           'fill-color': '#7dd3fc',
-          'fill-opacity': 0,
+          'fill-opacity': ['get', 'fill_opacity'],
         }
       });
-      animateLayerPaintNumber('grid-loader-fill', 'fill-opacity', 0, 0.09, 220, startLoaderPulse);
+      startLoaderPulse();
     }
 
     function removeLayers(keepLoader = false) {
@@ -1825,7 +1859,7 @@
       map.on('click', 'grid-fill', onGridClick);
       map.on('mouseenter', 'grid-fill', onGridEnter);
       map.on('mouseleave', 'grid-fill', onGridLeave);
-      animateGridFillFactor(0, 1, 180, () => { applyGridLinesVisibility(); updateHighlight(); });
+      animateGridFillFactor(0, 1, 260, () => { applyGridLinesVisibility(); updateHighlight(); });
     }
 
     function onGridEnter() {
