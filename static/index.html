@@ -1142,6 +1142,7 @@
     let gridAnimationToken = 0;
     let loaderPulseFrame = null;
     let loaderPulseStart = 0;
+    let gridRevealFailsafeTimer = null;
     let bestCellsMode = false;
     let showGridLines = true;
     let dataFetchController = null;
@@ -1390,6 +1391,39 @@
       if (map.getSource('grid-loader')) {
         map.getSource('grid-loader').setData(buildLoaderGeoJSON(buildLoaderCells(currentCenter), 0));
       }
+    }
+
+    function clearGridRevealFailsafe() {
+      if (gridRevealFailsafeTimer !== null) {
+        clearTimeout(gridRevealFailsafeTimer);
+        gridRevealFailsafeTimer = null;
+      }
+    }
+
+    function forceGridVisible(cells = getCurrentSlot()?.cells || []) {
+      clearGridRevealFailsafe();
+      if (!map.isStyleLoaded()) return;
+      if (Array.isArray(cells) && cells.length && map.getSource('grid')) {
+        map.getSource('grid').setData(buildGeoJSON(cells));
+        setGridFillFactor(1);
+        applyGridLinesVisibility();
+        updateHighlight();
+      }
+      removeLoaderLayers();
+      if (!hasCompletedInitialLoad) {
+        hasCompletedInitialLoad = true;
+        hideAppLoader();
+      }
+    }
+
+    function scheduleGridRevealFailsafe(cells) {
+      clearGridRevealFailsafe();
+      const waitMs = Math.max(980, Math.round(GRID_ANIMATION_CELL_MS * 1.7 + GRID_ANIMATION_STAGGER_SPAN_MS * 1.55));
+      gridRevealFailsafeTimer = window.setTimeout(() => {
+        const liveCells = getCurrentSlot()?.cells || [];
+        const nextCells = liveCells.length ? liveCells : cells;
+        forceGridVisible(nextCells);
+      }, waitMs);
     }
 
     function startLoaderPulse() {
@@ -1790,6 +1824,7 @@
     }
 
     function removeLoaderLayers() {
+      clearGridRevealFailsafe();
       gridAnimationToken += 1;
       stopLoaderPulse();
       if (map.getLayer('grid-loader-fill')) map.removeLayer('grid-loader-fill');
@@ -1814,6 +1849,7 @@
     }
 
     function removeLayers(keepLoader = false) {
+      clearGridRevealFailsafe();
       gridAnimationToken += 1;
       removeLoaderLayers();
       if (map.getLayer('grid-highlight')) map.removeLayer('grid-highlight');
@@ -1941,6 +1977,7 @@
       lastGridTemplate = deriveGridTemplate(cells) || lastGridTemplate;
       refreshStats(cells, slot);
       if (!map.isStyleLoaded()) return;
+      clearGridRevealFailsafe();
       removeLayers(true);
       if (!cells.length) {
         removeLoaderLayers();
@@ -1949,7 +1986,9 @@
       stopLoaderPulse();
       addLayers(buildGeoJSON(cells));
       if (shouldAnimateNextGrid) {
+        scheduleGridRevealFailsafe(cells);
         animateGridReveal(cells, () => {
+          clearGridRevealFailsafe();
           shouldAnimateNextGrid = false;
           if (!hasCompletedInitialLoad) {
             hasCompletedInitialLoad = true;
