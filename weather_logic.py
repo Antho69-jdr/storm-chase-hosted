@@ -91,6 +91,7 @@ class OutputRow:
     trigger_score: int
     structure_score: int
     chase_quality_score: int
+    stability_score: int
     confidence_score: int
     score_global: int
     potentiel: str
@@ -232,96 +233,120 @@ def shear_proxy_ms(ws10: float, wd10: float, ws100: float, wd100: float) -> floa
     return round(math.sqrt(du * du + dv * dv), 1)
 
 
-def score_trigger(cape: float, dewpoint_c: float, rh2m: float, vpd: float, temp_c: float) -> int:
+def score_trigger(cape: float, dewpoint_c: float, rh2m: float, vpd: float, temp_c: float, wetbulb_c: float) -> int:
     score = 0.0
 
-    # Instabilité
-    if cape < 100:
+    # Instabilité utilisable : on évite de sur-récompenser un CAPE élevé seul.
+    if cape < 75:
         score += 0
-    elif cape < 400:
-        score += 8
-    elif cape < 800:
-        score += 18
+    elif cape < 200:
+        score += 6
+    elif cape < 500:
+        score += 16
+    elif cape < 900:
+        score += 28
     elif cape < 1500:
-        score += 32
-    elif cape < 2500:
-        score += 42
+        score += 38
+    elif cape < 2200:
+        score += 45
     else:
-        score += 50
+        score += 48
 
-    # Humidité basse couche : point de rosée
-    if dewpoint_c < 8:
-        score -= 12
-    elif dewpoint_c < 12:
-        score -= 4
-    elif dewpoint_c < 15:
-        score += 4
-    elif dewpoint_c < 18:
-        score += 10
-    elif dewpoint_c < 21:
+    # Humidité basse couche.
+    if dewpoint_c < 7:
+        score -= 16
+    elif dewpoint_c < 10:
+        score -= 8
+    elif dewpoint_c < 13:
+        score += 0
+    elif dewpoint_c < 16:
+        score += 8
+    elif dewpoint_c < 19:
         score += 14
     else:
-        score += 16
+        score += 18
 
-    # Sécheresse de la couche basse
-    if vpd < 0.4:
+    # VPD : préférence pour une couche basse ni saturée ni trop sèche.
+    if vpd < 0.25:
+        score += 2
+    elif vpd < 0.7:
+        score += 10
+    elif vpd < 1.2:
+        score += 14
+    elif vpd < 1.8:
         score += 8
-    elif vpd < 0.9:
-        score += 12
-    elif vpd < 1.5:
-        score += 7
-    elif vpd < 2.2:
-        score += 0
+    elif vpd < 2.5:
+        score -= 2
     else:
-        score -= 10
+        score -= 12
 
-    # RH en appoint seulement
-    if rh2m >= 80:
-        score += 5
-    elif rh2m >= 65:
+    # RH : appoint.
+    if rh2m >= 85:
+        score += 4
+    elif rh2m >= 70:
         score += 3
-    elif rh2m < 40:
-        score -= 6
+    elif rh2m < 35:
+        score -= 8
 
-    # Air très chaud mais couche basse trop sèche
-    if temp_c >= 31 and dewpoint_c < 14:
+    # Température humide : bon proxy simple d'une couche basse exploitable.
+    if wetbulb_c >= 18:
+        score += 8
+    elif wetbulb_c >= 15:
+        score += 5
+    elif wetbulb_c < 9:
+        score -= 8
+
+    # Cas classiques d'instabilité sèche peu fiable pour du déclenchement réel.
+    if cape >= 1200 and dewpoint_c < 11:
+        score -= 10
+    if temp_c >= 31 and dewpoint_c < 13:
+        score -= 8
+    if cape >= 900 and vpd >= 2.0:
         score -= 6
 
     return clamp(score)
 
 
-def score_structure(shear_ms: float, gusts: float, cape: float) -> int:
+def score_structure(shear_ms: float, gusts: float, cape: float, trigger_score: int) -> int:
     score = 0.0
 
-    # Shear = axe principal
-    if shear_ms < 6:
+    # Cisaillement = axe principal, avec plateau au-delà d'un certain seuil.
+    if shear_ms < 5:
         score += 0
-    elif shear_ms < 10:
-        score += 12
-    elif shear_ms < 14:
-        score += 25
-    elif shear_ms < 18:
-        score += 40
-    elif shear_ms < 24:
-        score += 52
-    elif shear_ms < 30:
+    elif shear_ms < 8:
+        score += 8
+    elif shear_ms < 12:
+        score += 20
+    elif shear_ms < 16:
+        score += 34
+    elif shear_ms < 20:
+        score += 47
+    elif shear_ms < 26:
         score += 58
+    elif shear_ms < 32:
+        score += 62
     else:
-        score += 54
+        score += 60
 
-    # Rafales : appoint uniquement
-    if gusts >= 10:
-        score += 4
+    # Rafales : appoint, utile pour distinguer un champ de vent un peu plus dynamique.
+    if gusts >= 11:
+        score += 3
     if gusts >= 16:
         score += 4
     if gusts >= 22:
-        score += 3
+        score += 4
 
-    # On évite une structure artificiellement haute si l'instabilité est absente
-    if shear_ms >= 18 and cape < 250:
-        score -= 12
-    elif shear_ms >= 14 and cape < 400:
-        score -= 6
+    # Impossible d'avoir une "bonne organisation chassable" si le signal de déclenchement est très faible.
+    if trigger_score < 20:
+        score -= 18
+    elif trigger_score < 35:
+        score -= 10
+
+    # On évite les faux positifs sur fort shear avec instabilité quasi absente.
+    if shear_ms >= 16 and cape < 200:
+        score -= 14
+    elif shear_ms >= 12 and cape < 350:
+        score -= 7
 
     return clamp(score)
 
@@ -329,58 +354,99 @@ def score_structure(shear_ms: float, gusts: float, cape: float) -> int:
 def score_chase_quality(low: float, mid: float, high: float) -> int:
     score = 100.0
 
-    if low >= 90:
-        score -= 40
-    elif low >= 75:
-        score -= 28
-    elif low >= 55:
-        score -= 16
-    elif low >= 35:
+    # La couche basse pénalise le plus la lisibilité terrain.
+    if low >= 95:
+        score -= 46
+    elif low >= 80:
+        score -= 32
+    elif low >= 60:
+        score -= 18
+    elif low >= 40:
         score -= 8
 
-    if mid >= 90:
-        score -= 22
-    elif mid >= 75:
-        score -= 15
-    elif mid >= 55:
-        score -= 8
+    if mid >= 95:
+        score -= 24
+    elif mid >= 80:
+        score -= 17
+    elif mid >= 60:
+        score -= 9
 
-    if high >= 95:
+    if high >= 98:
         score -= 10
-    elif high >= 80:
-        score -= 6
+    elif high >= 90:
+        score -= 7
+    elif high >= 75:
+        score -= 4
 
     return clamp(score)
 
 
-def score_global(trigger_score: int, structure_score: int, chase_quality_score: int) -> int:
-    return clamp(trigger_score * 0.45 + structure_score * 0.35 + chase_quality_score * 0.20)
+def score_stability(reference: dict, neighbours: list[dict]) -> int:
+    if not neighbours:
+        return 35
 
+    ref_global = reference["pre_global"]
+    ref_trigger = reference["trigger"]
+    ref_structure = reference["structure"]
 
-def score_confidence(trigger_score: int, structure_score: int, chase_quality_score: int, global_score_value: int) -> int:
-    score = 45.0
+    global_diffs = [abs(ref_global - n["pre_global"]) for n in neighbours]
+    trigger_diffs = [abs(ref_trigger - n["trigger"]) for n in neighbours]
+    structure_diffs = [abs(ref_structure - n["structure"]) for n in neighbours]
 
-    gap = abs(trigger_score - structure_score)
-    if gap <= 10:
-        score += 22
-    elif gap <= 20:
-        score += 14
-    elif gap <= 35:
-        score += 5
-    else:
+    mean_global_diff = sum(global_diffs) / len(global_diffs)
+    mean_trigger_diff = sum(trigger_diffs) / len(trigger_diffs)
+    mean_structure_diff = sum(structure_diffs) / len(structure_diffs)
+
+    score = 78.0
+    score -= mean_global_diff * 1.25
+    score -= mean_trigger_diff * 0.45
+    score -= mean_structure_diff * 0.35
+
+    close_support = sum(1 for n in neighbours if n["pre_global"] >= ref_global - 10)
+    score += close_support * 4
+
+    if ref_global >= 60 and close_support == 0:
+        score -= 10
+    if ref_global >= 70 and mean_global_diff <= 8:
+        score += 8
+    if mean_global_diff >= 18:
         score -= 10
 
-    if global_score_value >= 70:
-        score += 12
-    elif global_score_value >= 55:
-        score += 7
-    elif global_score_value < 25:
+    return clamp(score)
+
+
+def score_global(trigger_score: int, structure_score: int, chase_quality_score: int, stability_score: int) -> int:
+    return clamp(trigger_score * 0.40 + structure_score * 0.28 + chase_quality_score * 0.14 + stability_score * 0.18)
+
+
+def score_confidence(trigger_score: int, structure_score: int, chase_quality_score: int, stability_score: int, global_score_value: int) -> int:
+    score = 28.0
+
+    # Équilibre entre déclenchement et organisation.
+    gap = abs(trigger_score - structure_score)
+    if gap <= 8:
+        score += 16
+    elif gap <= 16:
+        score += 10
+    elif gap <= 26:
+        score += 4
+    else:
         score -= 8
 
-    if chase_quality_score < 25:
-        score -= 8
-    elif chase_quality_score > 70:
+    # La stabilité temporelle pèse lourd sur la confiance.
+    score += stability_score * 0.40
+
+    if global_score_value >= 70:
+        score += 8
+    elif global_score_value >= 55:
         score += 4
+    elif global_score_value < 25:
+        score -= 6
+
+    if chase_quality_score < 25:
+        score -= 7
+    elif chase_quality_score >= 75:
+        score += 3
 
     return clamp(score)
 
@@ -414,6 +480,7 @@ def build_summary(
     trigger_score: int,
     structure_score: int,
     chase_quality_score: int,
+    stability_score: int,
     confidence_score: int,
 ) -> str:
     trigger_text = (
@@ -437,6 +504,13 @@ def build_summary(
         if chase_quality_score >= 45
         else "visibilité pénalisée"
     )
+    stability_text = (
+        "bonne stabilité horaire"
+        if stability_score >= 70
+        else "stabilité correcte"
+        if stability_score >= 45
+        else "fenêtre fragile"
+    )
     conf_text = (
         "signal robuste"
         if confidence_score >= 70
@@ -444,7 +518,7 @@ def build_summary(
         if confidence_score >= 50
         else "signal fragile"
     )
-    return f"{day_label} {slot_label} ({selected_hour}) : {trigger_text}, {structure_text}, {quality_text}, {conf_text}."
+    return f"{day_label} {slot_label} ({selected_hour}) : {trigger_text}, {structure_text}, {quality_text}, {stability_text}, {conf_text}."
 
 
 def rows_for_location(point: Point, loc: dict) -> list[OutputRow]:
@@ -453,11 +527,59 @@ def rows_for_location(point: Point, loc: dict) -> list[OutputRow]:
     if not times:
         return []
 
+    metrics: list[dict] = []
     by_day: dict[str, list[tuple[int, datetime]]] = {}
+
     for idx, t in enumerate(times):
         dt = dt_from_iso(t)
         day_key = dt.date().isoformat()
         by_day.setdefault(day_key, []).append((idx, dt))
+
+        cape = float(hourly.get("cape", [0])[idx] or 0)
+        temp = float(hourly.get("temperature_2m", [0])[idx] or 0)
+        dew = float(hourly.get("dew_point_2m", [0])[idx] or 0)
+        rh2m = float(hourly.get("relative_humidity_2m", [0])[idx] or 0)
+        vpd = float(hourly.get("vapour_pressure_deficit", [0])[idx] or 0)
+        wetbulb = float(hourly.get("wet_bulb_temperature_2m", [0])[idx] or 0)
+        cloud_low = float(hourly.get("cloud_cover_low", [0])[idx] or 0)
+        cloud_mid = float(hourly.get("cloud_cover_mid", [0])[idx] or 0)
+        cloud_high = float(hourly.get("cloud_cover_high", [0])[idx] or 0)
+        gusts = float(hourly.get("wind_gusts_10m", [0])[idx] or 0)
+        ws10 = float(hourly.get("wind_speed_10m", [0])[idx] or 0)
+        ws100 = float(hourly.get("wind_speed_100m", [0])[idx] or 0)
+        wd10 = float(hourly.get("wind_direction_10m", [0])[idx] or 0)
+        wd100 = float(hourly.get("wind_direction_100m", [0])[idx] or 0)
+        shear = shear_proxy_ms(ws10, wd10, ws100, wd100)
+
+        trigger = score_trigger(cape, dew, rh2m, vpd, temp, wetbulb)
+        structure = score_structure(shear, gusts, cape, trigger)
+        quality = score_chase_quality(cloud_low, cloud_mid, cloud_high)
+        pre_global = clamp(trigger * 0.48 + structure * 0.32 + quality * 0.20)
+
+        metrics.append(
+            {
+                "idx": idx,
+                "dt": dt,
+                "day_key": day_key,
+                "cape": cape,
+                "temp": temp,
+                "dew": dew,
+                "rh2m": rh2m,
+                "vpd": vpd,
+                "wetbulb": wetbulb,
+                "cloud_low": cloud_low,
+                "cloud_mid": cloud_mid,
+                "cloud_high": cloud_high,
+                "gusts": gusts,
+                "shear": shear,
+                "trigger": trigger,
+                "structure": structure,
+                "quality": quality,
+                "pre_global": pre_global,
+            }
+        )
+
+    metrics_by_idx = {m["idx"]: m for m in metrics}
 
     rows: list[OutputRow] = []
     sorted_days = sorted(by_day.items(), key=lambda x: x[0])
@@ -467,39 +589,36 @@ def rows_for_location(point: Point, loc: dict) -> list[OutputRow]:
         day_label = f"{weekday} {items[0][1].day:02d}"
 
         for slot_key, (start_hour, end_hour, slot_label) in TIME_SLOTS.items():
-            candidates = [(i, dt) for i, dt in items if start_hour <= dt.hour <= end_hour]
-            if not candidates:
+            candidate_indices = [i for i, dt in items if start_hour <= dt.hour <= end_hour]
+            if not candidate_indices:
                 continue
 
             best: OutputRow | None = None
             best_score = -10_000
 
-            for idx, dt in candidates:
-                cape = float(hourly.get("cape", [0])[idx] or 0)
-                temp = float(hourly.get("temperature_2m", [0])[idx] or 0)
-                dew = float(hourly.get("dew_point_2m", [0])[idx] or 0)
-                rh2m = float(hourly.get("relative_humidity_2m", [0])[idx] or 0)
-                vpd = float(hourly.get("vapour_pressure_deficit", [0])[idx] or 0)
-                wetbulb = float(hourly.get("wet_bulb_temperature_2m", [0])[idx] or 0)
-                cloud_low = float(hourly.get("cloud_cover_low", [0])[idx] or 0)
-                cloud_mid = float(hourly.get("cloud_cover_mid", [0])[idx] or 0)
-                cloud_high = float(hourly.get("cloud_cover_high", [0])[idx] or 0)
-                gusts = float(hourly.get("wind_gusts_10m", [0])[idx] or 0)
-                ws10 = float(hourly.get("wind_speed_10m", [0])[idx] or 0)
-                ws100 = float(hourly.get("wind_speed_100m", [0])[idx] or 0)
-                wd10 = float(hourly.get("wind_direction_10m", [0])[idx] or 0)
-                wd100 = float(hourly.get("wind_direction_100m", [0])[idx] or 0)
-                shear = shear_proxy_ms(ws10, wd10, ws100, wd100)
-
-                trigger = score_trigger(cape, dew, rh2m, vpd, temp)
-                structure = score_structure(shear, gusts, cape)
-                quality = score_chase_quality(cloud_low, cloud_mid, cloud_high)
-                global_score = score_global(trigger, structure, quality)
-                conf_score = score_confidence(trigger, structure, quality, global_score)
+            for idx in candidate_indices:
+                metric = metrics_by_idx[idx]
+                neighbours = [
+                    metrics_by_idx[n_idx]
+                    for n_idx in range(idx - 1, idx + 2)
+                    if n_idx in metrics_by_idx and n_idx != idx
+                ]
+                stability = score_stability(metric, neighbours)
+                global_score = score_global(metric["trigger"], metric["structure"], metric["quality"], stability)
+                conf_score = score_confidence(metric["trigger"], metric["structure"], metric["quality"], stability, global_score)
                 pot = potentiel(global_score)
                 conf = confiance_label(conf_score)
-                selected_hour = dt.strftime("%Hh")
-                summary = build_summary(day_label, slot_label, selected_hour, trigger, structure, quality, conf_score)
+                selected_hour = metric["dt"].strftime("%Hh")
+                summary = build_summary(
+                    day_label,
+                    slot_label,
+                    selected_hour,
+                    metric["trigger"],
+                    metric["structure"],
+                    metric["quality"],
+                    stability,
+                    conf_score,
+                )
 
                 row = OutputRow(
                     day_key=day_key,
@@ -507,35 +626,36 @@ def rows_for_location(point: Point, loc: dict) -> list[OutputRow]:
                     day_index=day_index,
                     slot_key=slot_key,
                     slot_label=slot_label,
-                    selected_time_iso=dt.isoformat(),
+                    selected_time_iso=metric["dt"].isoformat(),
                     selected_hour=selected_hour,
                     zone=point.zone,
                     lat=point.lat,
                     lon=point.lon,
                     cell_height_deg=point.cell_height_deg,
                     cell_width_deg=point.cell_width_deg,
-                    trigger_score=trigger,
-                    structure_score=structure,
-                    chase_quality_score=quality,
+                    trigger_score=metric["trigger"],
+                    structure_score=metric["structure"],
+                    chase_quality_score=metric["quality"],
+                    stability_score=stability,
                     confidence_score=conf_score,
                     score_global=global_score,
                     potentiel=pot,
                     confiance=conf,
-                    mucape=round(cape, 1),
-                    relative_humidity_2m=round(rh2m, 1),
-                    vapour_pressure_deficit=round(vpd, 2),
-                    wet_bulb_temperature_2m=round(wetbulb, 1),
-                    cloud_cover_low=round(cloud_low, 1),
-                    cloud_cover_mid=round(cloud_mid, 1),
-                    cloud_cover_high=round(cloud_high, 1),
-                    wind_gusts_10m=round(gusts, 1),
-                    shear_ms=round(shear, 1),
-                    temp_c=round(temp, 1),
-                    dewpoint_c=round(dew, 1),
+                    mucape=round(metric["cape"], 1),
+                    relative_humidity_2m=round(metric["rh2m"], 1),
+                    vapour_pressure_deficit=round(metric["vpd"], 2),
+                    wet_bulb_temperature_2m=round(metric["wetbulb"], 1),
+                    cloud_cover_low=round(metric["cloud_low"], 1),
+                    cloud_cover_mid=round(metric["cloud_mid"], 1),
+                    cloud_cover_high=round(metric["cloud_high"], 1),
+                    wind_gusts_10m=round(metric["gusts"], 1),
+                    shear_ms=round(metric["shear"], 1),
+                    temp_c=round(metric["temp"], 1),
+                    dewpoint_c=round(metric["dew"], 1),
                     summary=summary,
                 )
 
-                score_key = global_score * 1000 + conf_score
+                score_key = global_score * 1000 + conf_score * 10 + stability
                 if score_key > best_score:
                     best_score = score_key
                     best = row
@@ -619,11 +739,12 @@ def group_for_output(rows: list[OutputRow], center_lat: float, center_lon: float
                 "cell_size_km": CELL_SIZE_KM,
             },
             "legend": {
-                "global_score": "0-100, combine déclenchement 45%, organisation 35%, qualité terrain 20%",
-                "trigger": "Instabilité + humidité basse couche (CAPE, Td, VPD, RH en appoint)",
-                "structure": "Cisaillement prioritaire, rafales en appoint",
+                "global_score": "0-100, combine déclenchement 40%, organisation 28%, qualité terrain 14%, stabilité 18%",
+                "trigger": "Instabilité utilisable + humidité basse couche (CAPE, Td, VPD, RH, Tw)",
+                "structure": "Cisaillement prioritaire, rafales en appoint, pondéré par le déclenchement",
                 "chase_quality": "Nébulosité / lisibilité terrain",
-                "confidence": "Cohérence entre déclenchement, organisation et lisibilité terrain",
+                "stability": "Stabilité horaire locale autour du créneau retenu",
+                "confidence": "Équilibre déclenchement/organisation + stabilité horaire + lisibilité terrain",
             },
         },
         "days": days,
