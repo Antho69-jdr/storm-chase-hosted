@@ -1657,15 +1657,17 @@
       });
       const maxDist = Math.max(...distances, 1e-9);
       const seconds = elapsedMs / 1000;
-      const front = (seconds * 0.34) % 1.2;
-      const spread = 0.16;
+      const period = 2.85;
+      const phase = (seconds / period) * Math.PI * 2;
+      const waveWidth = 0.15;
       const features = cells.map((cell, idx) => {
         const dist = distances[idx] / maxDist;
-        const primary = Math.exp(-Math.pow((dist - front) / spread, 2));
-        const echo = Math.exp(-Math.pow((dist - (front - 0.42)) / (spread * 1.18), 2));
-        const crest = Math.max(primary, echo * 0.68);
-        const shimmer = 0.5 + 0.5 * Math.sin(seconds * Math.PI * 0.9 + dist * Math.PI * 2.6);
-        const opacity = 0.028 + crest * 0.11 + shimmer * 0.012;
+        const wave = 0.5 + 0.5 * Math.sin((1 - dist) * Math.PI * 1.08 - phase);
+        const crest = Math.pow(wave, 2.35);
+        const secondary = Math.pow(0.5 + 0.5 * Math.sin((1 - dist) * Math.PI * 1.08 - phase - Math.PI * 0.62), 3.2);
+        const envelope = 0.72 + 0.28 * Math.cos(dist * Math.PI * 0.92);
+        const rimLift = Math.exp(-Math.pow((dist - 0.58) / waveWidth, 2)) * 0.018;
+        const opacity = 0.03 + crest * 0.072 * envelope + secondary * 0.028 + rimLift;
         const feature = cellToFeature(cell, new Set(), { opacity, latOffset: 0, lonOffset: 0 });
         feature.properties.fill_opacity = opacity;
         feature.properties.loader_dist = dist;
@@ -2493,7 +2495,14 @@
 
     async function loadData(force = false, centerToken = centerChangeToken) {
       const signature = `${currentCenter.lat}|${currentCenter.lon}|${currentCenter.label}`;
-      if (!force && payload && signature === lastFetchSignature) return payload;
+      if (!force && payload && signature === lastFetchSignature) {
+        shouldAnimateNextGrid = false;
+        updateMetaLine();
+        renderDayButtons();
+        renderSlotButtons();
+        refreshMap();
+        return payload;
+      }
 
       if (dataFetchController) dataFetchController.abort();
       const controller = new AbortController();
