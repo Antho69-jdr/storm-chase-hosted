@@ -222,7 +222,7 @@
       position: absolute;
       z-index: 11;
       left: 12px;
-      bottom: 22px;
+      bottom: max(16px, env(safe-area-inset-bottom));
       display: grid;
       gap: 6px;
       max-width: min(320px, calc(100vw - 24px));
@@ -315,6 +315,12 @@
       backdrop-filter: var(--glass-blur);
       -webkit-backdrop-filter: var(--glass-blur);
       display: none;
+    }
+    .selection-card.desktop-outside-grid {
+      left: auto;
+      right: auto;
+      bottom: auto;
+      transform: none;
     }
 
     .selection-card.visible { display: block; }
@@ -728,7 +734,7 @@
     }
 
     body.mobile-ui .meta-stack {
-      bottom: max(12px, env(safe-area-inset-bottom));
+      bottom: max(16px, env(safe-area-inset-bottom));
     }
 
     @media (max-width: 900px) {
@@ -791,7 +797,12 @@
     body.mobile-ui .meta-stack {
       left: 8px;
       max-width: calc(100vw - 92px);
-      bottom: calc(72px + env(safe-area-inset-bottom));
+      bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    @media (max-width: 900px) {
+      body.mobile-ui .meta-stack {
+        bottom: calc(72px + env(safe-area-inset-bottom));
+      }
     }
     body.mobile-ui .selection-card {
       left: 50%;
@@ -1139,9 +1150,9 @@
     let activeFetchToken = 0;
     const LOADER_GRID_SIZE = 7;
     const LOADER_CELL_SIZE_KM = 6.5;
-    const GRID_ANIMATION_TOTAL_MS = 300;
-    const GRID_ANIMATION_CELL_MS = 220;
-    const GRID_ANIMATION_STAGGER_SPAN_MS = 70;
+    const GRID_ANIMATION_TOTAL_MS = 520;
+    const GRID_ANIMATION_CELL_MS = 340;
+    const GRID_ANIMATION_STAGGER_SPAN_MS = 170;
     const VISIBILITY_REFRESH_MS = 10 * 60 * 1000;
     const APP_LOADER_MIN_MS = 0;
     let userLocationMarker = null;
@@ -1558,21 +1569,64 @@
       return km / (111 * Math.cos((lat * Math.PI) / 180));
     }
 
+    function deriveGridTemplate(cells) {
+      if (!Array.isArray(cells) || !cells.length) return null;
+      const latValues = [...new Set(cells.map(cell => Number(cell.lat).toFixed(6)))].sort((a, b) => Number(b) - Number(a));
+      const lonValues = [...new Set(cells.map(cell => Number(cell.lon).toFixed(6)))].sort((a, b) => Number(a) - Number(b));
+      const sample = cells[0] || {};
+      const cellHeightDeg = Number(sample.cell_height_deg);
+      const cellWidthDeg = Number(sample.cell_width_deg);
+      return {
+        rows: Math.max(1, latValues.length),
+        cols: Math.max(1, lonValues.length),
+        cellHeightDeg: Number.isFinite(cellHeightDeg) && cellHeightDeg > 0 ? cellHeightDeg : kmToDegLat(LOADER_CELL_SIZE_KM),
+        cellWidthDeg: Number.isFinite(cellWidthDeg) && cellWidthDeg > 0 ? cellWidthDeg : kmToDegLon(LOADER_CELL_SIZE_KM, Number(sample.lat) || currentCenter.lat),
+      };
+    }
+
+    function getLoaderTemplate(center) {
+      const currentCells = getCurrentSlot()?.cells || [];
+      const derived = deriveGridTemplate(currentCells);
+      if (derived) {
+        lastGridTemplate = derived;
+        return derived;
+      }
+      if (lastGridTemplate) {
+        return {
+          ...lastGridTemplate,
+          cellWidthDeg: Number.isFinite(lastGridTemplate.cellWidthDeg) && lastGridTemplate.cellWidthDeg > 0
+            ? lastGridTemplate.cellWidthDeg
+            : kmToDegLon(LOADER_CELL_SIZE_KM, center.lat),
+        };
+      }
+      const latStep = kmToDegLat(LOADER_CELL_SIZE_KM);
+      return {
+        rows: LOADER_GRID_SIZE,
+        cols: LOADER_GRID_SIZE,
+        cellHeightDeg: latStep,
+        cellWidthDeg: kmToDegLon(LOADER_CELL_SIZE_KM, center.lat),
+      };
+    }
+
     function buildLoaderCells(center) {
       const cells = [];
-      const latStep = kmToDegLat(LOADER_CELL_SIZE_KM);
-      const lonStep = kmToDegLon(LOADER_CELL_SIZE_KM, center.lat);
-      const half = Math.floor(LOADER_GRID_SIZE / 2);
+      const template = getLoaderTemplate(center);
+      const latStep = template.cellHeightDeg;
+      const lonStep = template.cellWidthDeg;
+      const rowOffset = (template.rows - 1) / 2;
+      const colOffset = (template.cols - 1) / 2;
       let idx = 0;
-      for (let row = -half; row <= half; row += 1) {
-        for (let col = -half; col <= half; col += 1) {
+      for (let row = 0; row < template.rows; row += 1) {
+        for (let col = 0; col < template.cols; col += 1) {
+          const rowFromCenter = rowOffset - row;
+          const colFromCenter = col - colOffset;
           cells.push({
             zone: `loader-${idx++}`,
-            lat: center.lat + row * latStep,
-            lon: center.lon + col * lonStep,
+            lat: center.lat + rowFromCenter * latStep,
+            lon: center.lon + colFromCenter * lonStep,
             cell_height_deg: latStep,
             cell_width_deg: lonStep,
-            score_global: 18 + ((row + half + col + half) % 5) * 5,
+            score_global: 18 + ((row + col) % 5) * 5,
             confidence_score: 42,
             chase_quality_score: 55,
             is_loader: true,
@@ -1848,6 +1902,7 @@
     function refreshMap() {
       const slot = getCurrentSlot();
       const cells = slot?.cells || [];
+      lastGridTemplate = deriveGridTemplate(cells) || lastGridTemplate;
       refreshStats(cells, slot);
       if (!map.isStyleLoaded()) return;
       removeLayers(true);
@@ -1870,6 +1925,7 @@
         removeLoaderLayers();
         updateHighlight();
       }
+      requestAnimationFrame(positionSelectionCard);
     }
 
     function safe(value, suffix = '') {
@@ -2200,12 +2256,100 @@
       applyMetricTone(selectionQuality, 'chase_quality_score', p.chase_quality_score);
       selectionSummary.textContent = p.summary || 'Aucun résumé disponible.';
       selectionCard.classList.add('visible');
+      requestAnimationFrame(positionSelectionCard);
     }
 
     function closeSelection() {
       selectionCard.classList.remove('visible');
+      selectionCard.classList.remove('desktop-outside-grid');
+      selectionCard.style.left = '';
+      selectionCard.style.right = '';
+      selectionCard.style.top = '';
+      selectionCard.style.bottom = '';
+      selectionCard.style.transform = '';
       selectedFeature = null;
       updateHighlight();
+    }
+
+    function getGridScreenBounds(cells) {
+      if (!Array.isArray(cells) || !cells.length || !map) return null;
+      let left = Infinity;
+      let right = -Infinity;
+      let top = Infinity;
+      let bottom = -Infinity;
+      for (const cell of cells) {
+        const lat = Number(cell.lat);
+        const lon = Number(cell.lon);
+        const h = Number(cell.cell_height_deg) / 2;
+        const w = Number(cell.cell_width_deg) / 2;
+        if (![lat, lon, h, w].every(Number.isFinite)) continue;
+        const corners = [
+          map.project([lon - w, lat - h]),
+          map.project([lon + w, lat - h]),
+          map.project([lon + w, lat + h]),
+          map.project([lon - w, lat + h]),
+        ];
+        for (const pt of corners) {
+          left = Math.min(left, pt.x);
+          right = Math.max(right, pt.x);
+          top = Math.min(top, pt.y);
+          bottom = Math.max(bottom, pt.y);
+        }
+      }
+      if (![left, right, top, bottom].every(Number.isFinite)) return null;
+      return { left, right, top, bottom, width: right - left, height: bottom - top };
+    }
+
+    function positionSelectionCard() {
+      if (!selectionCard.classList.contains('visible')) return;
+      const mobile = isMobileLayout() || window.innerWidth < 1100;
+      if (mobile) {
+        selectionCard.classList.remove('desktop-outside-grid');
+        selectionCard.style.left = '';
+        selectionCard.style.right = '';
+        selectionCard.style.top = '';
+        selectionCard.style.bottom = '';
+        selectionCard.style.transform = '';
+        return;
+      }
+      const cells = getCurrentSlot()?.cells || [];
+      const bounds = getGridScreenBounds(cells);
+      if (!bounds) {
+        selectionCard.classList.remove('desktop-outside-grid');
+        selectionCard.style.left = '';
+        selectionCard.style.right = '';
+        selectionCard.style.top = '';
+        selectionCard.style.bottom = '';
+        selectionCard.style.transform = '';
+        return;
+      }
+      const margin = 16;
+      const cardWidth = Math.min(380, window.innerWidth - 44);
+      const cardHeight = selectionCard.offsetHeight || 320;
+      const availableLeft = bounds.left - margin;
+      const availableRight = window.innerWidth - bounds.right - margin - (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--right-rail-width')) || 46) - 20;
+      let left = null;
+      if (availableLeft >= cardWidth) {
+        left = Math.max(12, bounds.left - cardWidth - margin);
+      } else if (availableRight >= cardWidth) {
+        left = Math.min(window.innerWidth - cardWidth - 76, bounds.right + margin);
+      }
+      if (left === null) {
+        selectionCard.classList.remove('desktop-outside-grid');
+        selectionCard.style.left = '';
+        selectionCard.style.right = '';
+        selectionCard.style.top = '';
+        selectionCard.style.bottom = '';
+        selectionCard.style.transform = '';
+        return;
+      }
+      const top = Math.max(12, Math.min(bounds.top + ((bounds.height - cardHeight) / 2), window.innerHeight - cardHeight - 12));
+      selectionCard.classList.add('desktop-outside-grid');
+      selectionCard.style.left = `${Math.round(left)}px`;
+      selectionCard.style.top = `${Math.round(top)}px`;
+      selectionCard.style.right = 'auto';
+      selectionCard.style.bottom = 'auto';
+      selectionCard.style.transform = 'none';
     }
 
     function openDetails() {
@@ -2438,7 +2582,13 @@
     searchCityBtn.addEventListener('click', handleCitySearch);
     cityInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') handleCitySearch(); });
     installChip.addEventListener('click', installApp);
-    window.addEventListener('resize', () => { if (!isMobileLayout()) closeTopPanels(); requestAnimationFrame(alignTopPanels); });
+    window.addEventListener('resize', () => {
+      if (!isMobileLayout()) closeTopPanels();
+      requestAnimationFrame(() => {
+        alignTopPanels();
+        positionSelectionCard();
+      });
+    });
     document.addEventListener('visibilitychange', maybeRefreshOnReturn);
     updateBestCellsButton();
 
@@ -2457,6 +2607,10 @@
     });
 
     registerPWA();
+
+    map.on('move', () => {
+      if (selectionCard.classList.contains('visible')) requestAnimationFrame(positionSelectionCard);
+    });
 
     map.on('load', async () => {
       cityInput.value = currentCenter.label;
