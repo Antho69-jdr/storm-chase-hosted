@@ -32,10 +32,10 @@
       --rail-top-topbar: 12px;
       --rail-top-focus: 128px;
       --rail-top-fab: 302px;
-      --rail-top-map: 360px;
       --rail-btn-size: 46px;
       --right-rail-width: 46px;
       --right-rail-gap: 10px;
+      --rail-top-map: calc(var(--rail-top-fab) + (var(--rail-btn-size) * 2) + var(--right-rail-gap) + 14px);
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; }
